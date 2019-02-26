@@ -33,9 +33,9 @@ lazy val publishSettings = Seq(
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
     if (isSnapshot.value)
-      Some("Artifactory Realm" at "https://artifactory.mdcatapult.io/artifactory/sbt-release;build.timestamp=" + new java.util.Date().getTime)
+      Some("MDC Nexus" at "https://nexus.mdcatapult.io/repository/maven-snapshots/;build.timestamp=" + new java.util.Date().getTime)
     else
-      Some("Artifactory Realm" at "https://artifactory.mdcatapult.io/artifactory/sbt-release")
+      Some("MDC Nexus" at "https://nexus.mdcatapult.io/repository/maven-releases/")
   },
   credentials += Credentials(Path.userHome / ".sbt" / ".credentials")
 )
