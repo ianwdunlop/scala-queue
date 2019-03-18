@@ -2,7 +2,7 @@ package io.mdcatapult.klein.queue
 
 import akka.actor._
 import com.spingo.op_rabbit.PlayJsonSupport._
-import com.spingo.op_rabbit.{RabbitControl, _}
+import com.spingo.op_rabbit.{RabbitControl, Queue ⇒ RQueue, _}
 import play.api.libs.json.{Format, Reads, Writes}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -11,7 +11,7 @@ import scala.language.postfixOps
 /**
   * Queue Abstraction
   */
-class Queue[T <: Envelope](queueName: String)(
+class Queue[T <: Envelope](queueName: String, topics: Option[String] = None)(
   implicit actorSystem: ActorSystem, ex: ExecutionContext, reader: Reads[T], writer: Writes[T], formatter: Format[T]
 ) {
 
@@ -28,7 +28,7 @@ class Queue[T <: Envelope](queueName: String)(
   def subscribe(callback: (T, String) ⇒ Any, concurrent: Int = 1): SubscriptionRef = Subscription.run(rabbit) {
     import Directives._
     channel(qos = concurrent) {
-      consume(Queue.passive(topic(queue(queueName), List(queueName)))) {
+      consume(RQueue.passive(topic(queue(queueName), List(topics.getOrElse(queueName))))) {
         (body(as[T]) & routingKey) {
           (msg, key) ⇒
             callback(msg, key) match {
