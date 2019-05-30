@@ -2,6 +2,7 @@ package io.mdcatapult.klein.queue
 
 import akka.actor._
 import com.spingo.op_rabbit.PlayJsonSupport._
+import com.spingo.op_rabbit.properties.MessageProperty
 import com.spingo.op_rabbit.{RabbitControl, Queue ⇒ RQueue, _}
 import play.api.libs.json.{Format, Reads, Writes}
 
@@ -11,13 +12,12 @@ import scala.language.postfixOps
 /**
   * Queue Abstraction
   */
-class Queue[T <: Envelope](queueName: String, topics: Option[String] = None)(
+case class Queue[T <: Envelope](queueName: String, topics: Option[String] = None)(
   implicit actorSystem: ActorSystem, ex: ExecutionContext, reader: Reads[T], writer: Writes[T], formatter: Format[T]
-) {
+) extends Subscribable with Sendable[T] {
 
   val rabbit: ActorRef = actorSystem.actorOf(Props[RabbitControl])
-  //  implicit val recoveryStrategy: RecoveryStrategy = RecoveryStrategy.none
-  implicit private val recoveryStrategy: RecoveryStrategy = RecoveryStrategy.abandonedQueue()
+  implicit val recoveryStrategy: RecoveryStrategy = RecoveryStrategy.abandonedQueue()
 
   /**
     * subscribe to queue/topic and execute callback on reciept of message
@@ -29,9 +29,9 @@ class Queue[T <: Envelope](queueName: String, topics: Option[String] = None)(
     import Directives._
     channel(qos = concurrent) {
       consume(RQueue.passive(topic(queue(queueName), List(topics.getOrElse(queueName))))) {
-        (body(as[T]) & routingKey) {
-          (msg, key) ⇒
-            callback(msg, key) match {
+        (body(as[T]) & exchange) {
+          (msg, ex) ⇒
+            callback(msg, ex) match {
               case f: Future[Any] ⇒ ack(f)
               case _ ⇒ ack
             }
@@ -45,6 +45,7 @@ class Queue[T <: Envelope](queueName: String, topics: Option[String] = None)(
     *
     * @param envelope message to send
     */
-  def send(envelope: T): Unit = rabbit ! Message.queue(envelope, queue = queueName)
+  def send(envelope: T, properties: Seq[MessageProperty] = Seq.empty): Unit =
+    rabbit ! Message.queue(envelope, queueName, properties)
 
 }

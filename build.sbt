@@ -11,7 +11,7 @@ lazy val root = (project in file(".")).
     organization        := "io.mdcatapult.klein",
     scalaVersion        := Scala212,
     crossScalaVersions  := Scala212 :: Scala211 :: Scala210 :: Nil,
-    version             := "0.0.2",
+    version             := "0.0.5",
     scalacOptions += "-Ypartial-unification",
     libraryDependencies ++= Seq(
       "org.scalatest" %% "scalatest"                  % "3.0.3" % Test,
@@ -22,7 +22,9 @@ lazy val root = (project in file(".")).
       "com.spingo" %% "op-rabbit-akka-stream"         % opRabbitVersion,
       "ch.qos.logback" % "logback-classic"            % "1.2.3",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
-      "com.typesafe" % "config"                       % configVersion,
+      "com.typesafe" % "config"                        % configVersion,
+      "com.typesafe.play" %% "play-ahc-ws-standalone"  % "2.1.0-M2",
+      "com.typesafe.play" %% "play-ws-standalone-json" % "2.1.0-M2"
     )
   ).
   settings(
