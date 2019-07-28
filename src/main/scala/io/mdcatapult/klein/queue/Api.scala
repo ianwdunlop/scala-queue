@@ -13,25 +13,23 @@ import play.api.libs.ws.WSAuthScheme
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-class Api() {
+class Api(config: Config)(
+  implicit actorSystem: ActorSystem, materialiser: ActorMaterializer, ex: ExecutionContext
+){
 
   sealed case class CacheEntry(ttl: LocalDateTime, queues: List[String])
 
   val cache: mutable.Map[String, CacheEntry] = mutable.Map[String, CacheEntry]()
-
-  import scala.concurrent.ExecutionContext.Implicits._
-  implicit val system: ActorSystem = ActorSystem("consumer-prefetch-http-client")
-  implicit val materialiser: ActorMaterializer = ActorMaterializer()
-
-  val config: Config = ConfigFactory.load().getConfig("op-rabbit.connection")
-  val host: String = config.getStringList("hosts").asScala.head
-  val port: Int = config.getInt("management-port")
-  val vhost: String = URLEncoder.encode(config.getString("virtual-host"), "UTF-8")
-  val httpClient = StandaloneAhcWSClient()
+  lazy val httpClient = StandaloneAhcWSClient(AhcWSClientConfigFactory.forConfig(config))
 
   def list_queues(exchange: String, ttl: Option[Int] = Some(3600)): Future[List[String]] = {
+
+    val conf: Config = config.getConfig("op-rabbit.connection")
+    val host: String = conf.getStringList("hosts").asScala.head
+    val port: Int = conf.getInt("management-port")
+    val vhost: String = URLEncoder.encode(conf.getString("virtual-host"), "UTF-8")
 
     val now = LocalDateTime.now()
     val key = s"$vhost/$exchange"
@@ -40,8 +38,8 @@ class Api() {
     if (entry.ttl.isBefore(now) || entry.queues.isEmpty) {
       val endpoint = f"http://$host:$port/api/exchanges/$key/bindings/source"
       httpClient.url(endpoint).withAuth(
-        config.getString("username"),
-        config.getString("password"),
+        conf.getString("username"),
+        conf.getString("password"),
         WSAuthScheme.BASIC
       ).get().map({
         r =>
