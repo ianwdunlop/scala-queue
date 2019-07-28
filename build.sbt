@@ -11,8 +11,17 @@ lazy val root = (project in file(".")).
     organization        := "io.mdcatapult.klein",
     scalaVersion        := Scala212,
     crossScalaVersions  := Scala212 :: Scala211 :: Scala210 :: Nil,
-    version             := "0.0.5",
+    version             := "0.0.7",
     scalacOptions += "-Ypartial-unification",
+    resolvers         ++= Seq("MDC Nexus" at "https://nexus.mdcatapult.io/repository/maven-releases/"),
+    credentials       += {
+      val nexusPassword = sys.env.get("NEXUS_PASSWORD")
+      if ( nexusPassword.nonEmpty ) {
+        Credentials("Sonatype Nexus Repository Manager", "nexus.mdcatapult.io", "gitlab", nexusPassword.get)
+      } else {
+        Credentials(Path.userHome / ".sbt" / ".credentials")
+      }
+    },
     libraryDependencies ++= Seq(
       "org.scalatest" %% "scalatest"                  % "3.0.3" % Test,
       "com.spingo" %% "op-rabbit-core"                % opRabbitVersion,
