@@ -12,12 +12,12 @@ import scala.language.postfixOps
 /**
   * Queue Abstraction
   */
-case class Queue[T <: Envelope](queueName: String, topics: Option[String] = None)(
+case class Queue[T <: Envelope](queueName: String, consumerName: Option[String] = None, topics: Option[String] = None)(
   implicit actorSystem: ActorSystem, ex: ExecutionContext, reader: Reads[T], writer: Writes[T], formatter: Format[T]
 ) extends Subscribable with Sendable[T] {
 
   val rabbit: ActorRef = actorSystem.actorOf(Props[RabbitControl])
-  implicit val recoveryStrategy: RecoveryStrategy = RecoveryStrategy.abandonedQueue()
+  implicit val recoveryStrategy: RecoveryStrategy = RecoveryStrategy.errorQueue("errors", consumerName)
 
   /**
     * subscribe to queue/topic and execute callback on reciept of message

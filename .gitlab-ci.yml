@@ -1,8 +1,4 @@
-services:
-  - docker:dind
-
 stages:
-  - assembly
   - publish
 
 variables:
@@ -19,7 +15,7 @@ cache:
 
 
 publish-master:
-  stage: assembly
+  stage: publish
   image: openjdk:11
   before_script:
     - apt-get update -yqq
