@@ -12,7 +12,7 @@ import scala.language.postfixOps
 /**
   * Queue Abstraction
   */
-case class Topic[T <: Envelope](routingKey: String, exchange: Option[String] = None)(
+case class Topic[T <: Envelope](name: String, exchange: Option[String] = None)(
   implicit actorSystem: ActorSystem, ex: ExecutionContext, reader: Reads[T], writer: Writes[T], formatter: Format[T]
 ) extends Sendable[T] {
 
@@ -25,7 +25,7 @@ case class Topic[T <: Envelope](routingKey: String, exchange: Option[String] = N
     */
   def send(envelope: T, properties: Seq[MessageProperty] = Seq.empty): Unit = rabbit ! Message.topic(
     envelope,
-    routingKey,
+    name,
     if (exchange.isDefined) exchange.get else RabbitControl.topicExchangeName,
     properties)
 

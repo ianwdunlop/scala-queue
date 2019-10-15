@@ -12,9 +12,9 @@ import scala.language.postfixOps
 /**
   * Queue Abstraction
   */
-case class Queue[T <: Envelope](queueName: String, consumerName: Option[String] = None, topics: Option[String] = None)(
-  implicit actorSystem: ActorSystem, ex: ExecutionContext, reader: Reads[T], writer: Writes[T], formatter: Format[T]
-) extends Subscribable with Sendable[T] {
+case class Queue[T <: Envelope](name: String, consumerName: Option[String] = None, topics: Option[String] = None)
+                               (implicit actorSystem: ActorSystem, ex: ExecutionContext, reader: Reads[T], writer: Writes[T], formatter: Format[T])
+  extends Subscribable with Sendable[T] {
 
   val rabbit: ActorRef = actorSystem.actorOf(Props[RabbitControl])
   implicit val recoveryStrategy: RecoveryStrategy = RecoveryStrategy.errorQueue("errors", consumerName)
@@ -28,7 +28,7 @@ case class Queue[T <: Envelope](queueName: String, consumerName: Option[String] 
   def subscribe(callback: (T, String) ⇒ Any, concurrent: Int = 1): SubscriptionRef = Subscription.run(rabbit) {
     import Directives._
     channel(qos = concurrent) {
-      consume(RQueue.passive(topic(queue(queueName), List(topics.getOrElse(queueName))))) {
+      consume(RQueue.passive(topic(queue(name), List(topics.getOrElse(name))))) {
         (body(as[T]) & exchange) {
           (msg, ex) ⇒
             callback(msg, ex) match {
@@ -46,6 +46,6 @@ case class Queue[T <: Envelope](queueName: String, consumerName: Option[String] 
     * @param envelope message to send
     */
   def send(envelope: T, properties: Seq[MessageProperty] = Seq.empty): Unit =
-    rabbit ! Message.queue(envelope, queueName, properties)
+    rabbit ! Message.queue(envelope, name, properties)
 
 }
