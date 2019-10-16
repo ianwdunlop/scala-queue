@@ -13,7 +13,9 @@ lazy val root = (project in file(".")).
     scalaVersion        := Scala212,
     crossScalaVersions  := Scala212 :: Scala211 :: Scala210 :: Nil,
     scalacOptions += "-Ypartial-unification",
-    resolvers         ++= Seq("MDC Nexus" at "https://nexus.mdcatapult.io/repository/maven-releases/"),
+    resolvers         ++= Seq(
+      "MDC Nexus Releases" at "http://nexus.mdcatapult.io/repository/maven-releases/",
+      "MDC Nexus Snapshots" at "http://nexus.mdcatapult.io/repository/maven-snapshots/"),
     credentials       += {
       val nexusPassword = sys.env.get("NEXUS_PASSWORD")
       if ( nexusPassword.nonEmpty ) {
@@ -42,9 +44,8 @@ lazy val root = (project in file(".")).
 
 lazy val publishSettings = Seq(
   publishTo := {
-    val nexus = "https://oss.sonatype.org/"
     if (isSnapshot.value)
-      Some("MDC Nexus" at "https://nexus.mdcatapult.io/repository/maven-snapshots/;build.timestamp=" + new java.util.Date().getTime)
+      Some("MDC Maven Repo" at "https://nexus.mdcatapult.io/repository/maven-snapshots/")
     else
       Some("MDC Nexus" at "https://nexus.mdcatapult.io/repository/maven-releases/")
   },
