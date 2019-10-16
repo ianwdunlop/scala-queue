@@ -29,7 +29,7 @@ test:
   stage: test
   image: openjdk:11
   script:
-    - sbt test coverageReport
+    - sbt coverage test coverageReport coverageOff
 
 publish-snapshot:
   stage: publish
