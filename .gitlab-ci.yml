@@ -29,7 +29,7 @@ test:
   stage: test
   image: openjdk:11
   script:
-    - sbt coverage test coverageReport coverageOff
+    - sbt clean coverage test coverageReport coverageOff
 
 publish-snapshot:
   stage: publish
@@ -43,6 +43,10 @@ release-master:
   stage: publish
   image: openjdk:11
   script:
+    - git checkout master
     - sbt "release with-defaults"
+    - git checkout develop
+    - git rebase develop
+    - git push origin develop
   only:
     - master
