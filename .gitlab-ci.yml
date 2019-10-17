@@ -15,9 +15,7 @@ cache:
     - "sbt-cache/target"
 
 before_script:
-  - git remote set-url origin https://$GIT_PUSH_USER:$GIT_PUSH_TOKEN@gitlab.mdcatapult.io/$CI_PROJECT_PATH.git
-  - git config --global user.email "${GIT_RELEASE_EMAIL}"
-  - git config --global user.name "${GIT_RELEASE_USER}"
+
   - apt-get update -yqq
   - apt-get install -yqq apt-transport-https ca-certificates
   - echo "deb https://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list
@@ -25,15 +23,29 @@ before_script:
   - apt-get update -yqq
   - apt-get install -yqq sbt
   - sbt sbtVersion
+  - 'which ssh-agent || ( apt-get install -qq openssh-client )'
+  - eval $(ssh-agent -s)
+  - ssh-add <(echo "$SSH_PRIVATE_KEY")
+  - mkdir -p ~/.ssh
+  - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+  - git remote set-url origin git@gitlab.mdcatapult.io/$CI_PROJECT_PATH.git
+  - git config --global user.email "${GIT_RELEASE_EMAIL}"
+  - git config --global user.name "${GIT_RELEASE_USER}"
 
 test:
   stage: test
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
   image: openjdk:11
   script:
     - sbt clean coverage test coverageReport coverageOff
 
 publish-snapshot:
   stage: publish
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
   image: openjdk:11
   script:
     - sbt publish
@@ -42,6 +54,9 @@ publish-snapshot:
 
 release-master:
   stage: publish
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
   image: openjdk:11
   script:
     - git checkout master
