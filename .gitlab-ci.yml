@@ -59,6 +59,7 @@ release-master:
   image: openjdk:11
   script:
     - git checkout master
+    - git pull origin master
     - sbt "release with-defaults"
     - git checkout develop
     - git rebase develop
