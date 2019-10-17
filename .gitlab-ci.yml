@@ -15,7 +15,6 @@ cache:
     - "sbt-cache/target"
 
 before_script:
-
   - apt-get update -yqq
   - apt-get install -yqq apt-transport-https ca-certificates
   - echo "deb https://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list
