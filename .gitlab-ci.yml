@@ -15,7 +15,7 @@ cache:
     - "sbt-cache/target"
 
 before_script:
-  - git remote set-url origin https://$GIT_PUSH_USER:$GIT_PUSH_TOKEN@gitlab@mdcatapult.io/$CI_PROJECT_PATH.git
+  - git remote set-url origin https://$GIT_PUSH_USER:$GIT_PUSH_TOKEN@gitlab.mdcatapult.io/$CI_PROJECT_PATH.git
   - git config --global user.email "${GIT_RELEASE_EMAIL}"
   - git config --global user.name "${GIT_RELEASE_USER}"
   - apt-get update -yqq
