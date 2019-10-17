@@ -34,12 +34,18 @@ before_script:
 
 test:
   stage: test
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
   image: openjdk:11
   script:
     - sbt clean coverage test coverageReport coverageOff
 
 publish-snapshot:
   stage: publish
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
   image: openjdk:11
   script:
     - sbt publish
@@ -48,6 +54,9 @@ publish-snapshot:
 
 release-master:
   stage: publish
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
   image: openjdk:11
   script:
     - git checkout master
