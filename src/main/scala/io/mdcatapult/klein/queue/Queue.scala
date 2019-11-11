@@ -3,20 +3,25 @@ package io.mdcatapult.klein.queue
 import akka.actor._
 import com.spingo.op_rabbit.PlayJsonSupport._
 import com.spingo.op_rabbit.properties.MessageProperty
-import com.spingo.op_rabbit.{RabbitControl, Queue ⇒ RQueue, _}
+import com.spingo.op_rabbit.{RabbitControl, Queue => RQueue, _}
+import com.typesafe.config.Config
 import play.api.libs.json.{Format, Reads, Writes}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.language.postfixOps
 
 /**
   * Queue Abstraction
   */
 case class Queue[T <: Envelope](name: String, consumerName: Option[String] = None, topics: Option[String] = None)
-                               (implicit actorSystem: ActorSystem, ex: ExecutionContext, reader: Reads[T], writer: Writes[T], formatter: Format[T])
+                               (implicit actorSystem: ActorSystem, config: Config, reader: Reads[T], writer: Writes[T], formatter: Format[T])
   extends Subscribable with Sendable[T] {
 
-  val rabbit: ActorRef = actorSystem.actorOf(Props[RabbitControl])
+  implicit val ex: ExecutionContextExecutor = actorSystem.dispatcher
+  val rabbit: ActorRef = actorSystem.actorOf(
+    Props(classOf[RabbitControl], ConnectionParams.fromConfig(config.getConfig("op-rabbit.connection"))),
+    name
+  )
   implicit val recoveryStrategy: RecoveryStrategy = RecoveryStrategy.errorQueue("errors", consumerName)
 
   /**
