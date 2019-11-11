@@ -68,6 +68,7 @@ release-master:
       --data "{ \"name\": \"$RELEASE_TAG\", \"tag_name\": \"$RELEASE_TAG\", \"description\": \"Automated CI Release of $RELEASE_TAG\" }"
       --request POST https://gitlab.mdcatapult.io/api/v4/projects/$CI_PROJECT_ID/releases
     - git checkout develop
+    - git pull
     - git rebase master
     - git push origin develop
   only:
