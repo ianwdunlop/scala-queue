@@ -1,4 +1,4 @@
-lazy val Scala212 = "2.12.8"
+lazy val Scala212 = "2.12.10"
 lazy val Scala211 = "2.11.12"
 lazy val Scala210 = "2.10.7"
 
@@ -14,8 +14,8 @@ lazy val root = (project in file(".")).
     crossScalaVersions  := Scala212 :: Scala211 :: Scala210 :: Nil,
     scalacOptions += "-Ypartial-unification",
     resolvers         ++= Seq(
-      "MDC Nexus Releases" at "http://nexus.mdcatapult.io/repository/maven-releases/",
-      "MDC Nexus Snapshots" at "http://nexus.mdcatapult.io/repository/maven-snapshots/"),
+      "MDC Nexus Releases" at "https://nexus.mdcatapult.io/repository/maven-releases/",
+      "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/"),
     credentials       += {
       val nexusPassword = sys.env.get("NEXUS_PASSWORD")
       if ( nexusPassword.nonEmpty ) {

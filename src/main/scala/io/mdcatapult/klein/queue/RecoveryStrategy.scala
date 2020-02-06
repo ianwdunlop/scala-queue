@@ -7,7 +7,7 @@ import com.spingo.op_rabbit.Directives.{ack, extract, property}
 import com.spingo.op_rabbit.Queue.ModeledArgs.{`x-expires`, `x-message-ttl`}
 import com.spingo.op_rabbit.RecoveryStrategy.{`x-original-exchange`, `x-original-routing-key`, `x-retry`, nack}
 import com.spingo.op_rabbit.properties.{Header, HeaderValue, MessageProperty, PimpedBasicProperties}
-import com.spingo.op_rabbit.{Binding, Directives, Handler, RecoveryStrategy, properties, Exchange => OpExchange, Queue => OpQueue, RecoveryStrategy => OpRecoveryStrategy}
+import com.spingo.op_rabbit.{Binding, Directives, Handler, properties, Exchange => OpExchange, Queue => OpQueue, RecoveryStrategy => OpRecoveryStrategy}
 
 import scala.concurrent.duration.{FiniteDuration, _}
 
@@ -28,7 +28,7 @@ object RecoveryStrategy {
                   defaultTTL: FiniteDuration = 7.days,
                   errorQueueProperties: List[properties.Header] = Nil,
                   retryCount: Int = 3,
-                  onAbandon: RecoveryStrategy = nack(false),
+                  onAbandon: OpRecoveryStrategy = nack(false),
                   redeliverDelay: FiniteDuration = 10.seconds,
                   retryQueueProperties: List[properties.Header] = Nil
                 ): OpRecoveryStrategy = new OpRecoveryStrategy {
