@@ -5,16 +5,15 @@ import com.spingo.op_rabbit.PlayJsonSupport._
 import com.spingo.op_rabbit.properties.MessageProperty
 import com.spingo.op_rabbit.{RabbitControl, Queue => RQueue, _}
 import com.typesafe.config.Config
-import play.api.libs.json.{Format, Reads, Writes}
+import play.api.libs.json.Format
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
-import scala.language.postfixOps
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /**
   * Queue Abstraction
   */
 case class Queue[T <: Envelope](name: String, consumerName: Option[String] = None, topics: Option[String] = None)
-                               (implicit actorSystem: ActorSystem, config: Config, reader: Reads[T], writer: Writes[T], formatter: Format[T])
+                               (implicit actorSystem: ActorSystem, config: Config, formatter: Format[T])
   extends Subscribable with Sendable[T] {
 
   implicit val ex: ExecutionContextExecutor = actorSystem.dispatcher
@@ -25,7 +24,7 @@ case class Queue[T <: Envelope](name: String, consumerName: Option[String] = Non
   implicit val recoveryStrategy: RecoveryStrategy = RecoveryStrategy.errorQueue("errors", consumerName)
 
   /**
-    * subscribe to queue/topic and execute callback on reciept of message
+    * subscribe to queue/topic and execute callback on receipt of message
     *
     * @param callback Function
     * @return SubscriptionRef

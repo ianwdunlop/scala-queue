@@ -59,7 +59,7 @@ object RecoveryStrategy {
         exchange)
 
 
-    private def enqueue(queueName: String, channel: Channel, binding: Binding, props: Seq[MessageProperty] = List()): Handler =
+    private def enqueue(queueName: String, channel: Channel, binding: Binding, props: Seq[MessageProperty]): Handler =
       (extract(identity) & OpRecoveryStrategy.originalRoutingKey & OpRecoveryStrategy.originalExchange) {
         (delivery, rk, x) =>
           val binding: Binding = genRetryBinding(queueName)
