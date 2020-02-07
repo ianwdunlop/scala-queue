@@ -22,7 +22,7 @@ object RecoveryStrategy {
   }
 
   def errorQueue(
-                  errorQueue: String,
+                  errorQueueName: String,
                   consumerName: Option[String] = None,
                   exchange: OpExchange[OpExchange.Direct.type] = OpExchange.default,
                   defaultTTL: FiniteDuration = 7.days,
@@ -39,7 +39,7 @@ object RecoveryStrategy {
       Binding.direct(
         OpQueue.passive(
           OpQueue(
-            errorQueue,
+            errorQueueName,
             durable = true,
             arguments = List[properties.Header](
               `x-message-ttl`(defaultTTL),
@@ -88,7 +88,7 @@ object RecoveryStrategy {
         case thisRetryCount if thisRetryCount < retryCount =>
           enqueue(queueName, channel, genRetryBinding(queueName), List(`x-retry`(thisRetryCount + 1)))
         case _ =>
-          enqueue(queueName, channel, genErrorsBinding, List(
+          enqueue(errorQueueName, channel, genErrorsBinding, List(
             Header("x-consumer", HeaderValue.StringHeaderValue(consumerName.getOrElse("undeclared"))),
             Header("x-queue", HeaderValue.StringHeaderValue(queueName)),
             Header("x-datetime", HeaderValue.StringHeaderValue(LocalDateTime.now().toString)),
