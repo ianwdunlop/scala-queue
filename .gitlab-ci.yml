@@ -1,9 +1,16 @@
+services:
+  - docker:dind
+  - name: rabbitmq:management
+    alias: rabbitmq
+
 stages:
   - test
   - publish
 
 variables:
   SBT_OPTS: "-Dsbt.global.base=sbt-cache/.sbtboot -Dsbt.boot.directory=sbt-cache/.boot -Dsbt.ivy.home=sbt-cache/.ivy"
+  RABBITMQ_DEFAULT_USER: guest
+  RABBITMQ_DEFAULT_PASS: guest
 
 cache:
   key: "${CI_COMMIT_REF_SLUG}"
@@ -29,8 +36,12 @@ test:
     variables:
       - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
   image: openjdk:11
+  variables:
+    RABBITMQ_HOST: rabbitmq
+    RABBITMQ_USERNAME: guest
+    RABBITMQ_PASSWORD: guest
   script:
-    - sbt clean coverage test coverageReport coverageOff
+    - sbt clean coverage test it:test coverageReport coverageOff
 
 publish-snapshot:
   stage: publish
