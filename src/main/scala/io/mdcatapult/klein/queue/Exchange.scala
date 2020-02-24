@@ -24,7 +24,7 @@ case class Exchange[T <: Envelope](name: String, routingKey: Option[String] = No
     rabbit ! Message.exchange(
       envelope,
       name,
-      if (routingKey.isDefined) routingKey.get else "",
+      routingKey.getOrElse(""),
       properties)
 
 }
