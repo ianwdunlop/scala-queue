@@ -23,7 +23,7 @@ case class Topic[T <: Envelope](name: String, exchange: Option[String] = None)(
   def send(envelope: T, properties: Seq[MessageProperty] = Seq.empty): Unit = rabbit ! Message.topic(
     envelope,
     name,
-    if (exchange.isDefined) exchange.get else RabbitControl.topicExchangeName,
+    exchange.getOrElse(RabbitControl.topicExchangeName),
     properties)
 
 }

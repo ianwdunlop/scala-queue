@@ -9,8 +9,9 @@ import io.mdcatapult.klein.queue.helpers.RabbitTestHelpers
 import io.mdcatapult.klein.queue.{RecoveryStrategy => MdcRecoveryStrategy}
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Seconds, Span}
-import org.scalatest.{FunSpec, Matchers}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -22,7 +23,7 @@ import scala.util.Random
   * Other existing code has been modified to make it hopefully more readable, and sometimes to fix weaknesses in the
   * original test.
   */
-class RecoveryStrategySpec extends FunSpec with Matchers with RabbitTestHelpers with ScalaFutures with Eventually {
+class RecoveryStrategySpec extends AnyFunSpec with Matchers with RabbitTestHelpers with ScalaFutures with Eventually {
 
   private val _queueName = ScopedFixture[String] { setter =>
     val name = s"test-queue-rabbit-control-${Math.random()}"
@@ -43,8 +44,6 @@ class RecoveryStrategySpec extends FunSpec with Matchers with RabbitTestHelpers 
       implicit val recoveryStrategy: OpRecoveryStrategy = MdcRecoveryStrategy(MdcRecoveryStrategy.errorQueue("err").apply)
       new RabbitFixtures {
         import RabbitErrorLogging.defaultLogger
-
-        Future { 3 }
 
         private val range = 0 to 100
         private val promises = range.map { _ => Promise[Int] }.toList
@@ -151,7 +150,7 @@ class RecoveryStrategySpec extends FunSpec with Matchers with RabbitTestHelpers 
       *
       * @param retryCount defines the number of retries that the recovery strategy should attempt
       * @param messagesPerRequest the number of messages that should be sent by each request, namely 1 per retry + 1 to the error queue
-      * @return unimportant as the key testing happens within its constructor, but if needed calls could be made to it to help diagnose a testing issue
+      * @return unimportant as the key testing OneForOneStrategy happens within its constructor, but if needed calls could be made to it to help diagnose a testing issue
       */
     def recoveryStrategyWithRetry(retryCount: Int, messagesPerRequest: Int): RedeliveryFixtures = {
       val _retryCount = retryCount

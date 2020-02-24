@@ -1,6 +1,4 @@
-lazy val Scala212 = "2.12.10"
-lazy val Scala211 = "2.11.12"
-lazy val Scala210 = "2.10.7"
+lazy val scala_2_12 = "2.12.10"
 
 lazy val opRabbitVersion = "2.1.0"
 lazy val configVersion = "1.3.2"
@@ -16,8 +14,8 @@ lazy val root = (project in file("."))
     Defaults.itSettings,
     name                := "queue",
     organization        := "io.mdcatapult.klein",
-    scalaVersion        := Scala212,
-    crossScalaVersions  := Scala212 :: Scala211 :: Scala210 :: Nil,
+    scalaVersion        := scala_2_12,
+    crossScalaVersions  := scala_2_12 :: Nil,
     useCoursier := false,
     scalacOptions ++= Seq(
       "-encoding", "utf-8",
@@ -39,7 +37,7 @@ lazy val root = (project in file("."))
       }
     },
     libraryDependencies ++= Seq(
-      "org.scalatest" %% "scalatest"                  % "3.0.3" % "it,test",
+      "org.scalatest" %% "scalatest"                  % "3.1.0" % "it,test",
       "com.spingo" %% "op-rabbit-core"                % opRabbitVersion,
       "com.spingo" %% "op-rabbit-play-json"           % opRabbitVersion,
       "com.spingo" %% "op-rabbit-json4s"              % opRabbitVersion,

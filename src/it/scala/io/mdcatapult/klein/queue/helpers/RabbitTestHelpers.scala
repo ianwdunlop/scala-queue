@@ -11,9 +11,15 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future, Promise}
 import scala.language.postfixOps
 
+object RabbitTestHelpers {
+
+  val controlProps: Props = Props[RabbitControl]
+}
+
 trait RabbitTestHelpers extends ScopedFixtures {
 
   implicit val timeout: Timeout = Timeout(125 seconds)
+
   val killConnection: MessageForPublicationLike = new MessageForPublicationLike {
     val dropIfNoChannel = true
     def apply(c: Channel): Unit = {
@@ -27,8 +33,8 @@ trait RabbitTestHelpers extends ScopedFixtures {
     actorSystem.terminate()
     status
   }
-  val rabbitControlFixture: TestFixture[ActorRef] = LazyFixture[ActorRef] {
-    actorSystemFixture().actorOf(Props[RabbitControl])
+  val rabbitControlFixture: TestFixture[ActorRef] = EagerFixture[ActorRef] {
+    actorSystemFixture().actorOf(RabbitTestHelpers.controlProps)
   }
 
   implicit def actorSystem: ActorSystem = actorSystemFixture()
