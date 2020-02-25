@@ -3,26 +3,25 @@ package io.mdcatapult.klein.queue
 import java.net.URLEncoder
 import java.time.LocalDateTime
 
-import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.Config
 import play.api.libs.json.{JsString, JsValue}
 import play.api.libs.ws.JsonBodyReadables._
-import play.api.libs.ws.ahc._
 import play.api.libs.ws.WSAuthScheme
+import play.api.libs.ws.ahc._
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 class Api(config: Config)(
-  implicit actorSystem: ActorSystem, materialiser: ActorMaterializer, ex: ExecutionContext
-){
+  implicit materialiser: ActorMaterializer, ex: ExecutionContext
+) {
 
   sealed case class CacheEntry(ttl: LocalDateTime, queues: List[String])
 
   val cache: mutable.Map[String, CacheEntry] = mutable.Map[String, CacheEntry]()
-  lazy val httpClient = StandaloneAhcWSClient(AhcWSClientConfigFactory.forConfig(config))
+  lazy val httpClient: StandaloneAhcWSClient = StandaloneAhcWSClient(AhcWSClientConfigFactory.forConfig(config))
 
   def list_queues(exchange: String, ttl: Option[Int] = Some(3600)): Future[List[String]] = {
 
