@@ -2,13 +2,11 @@ package io.mdcatapult.klein.queue
 
 import akka.actor.ActorSystem
 import com.typesafe.config.Config
-import play.api.libs.json.{Format, Reads, Writes}
+import play.api.libs.json.Format
 
 import scala.collection.mutable
-import scala.concurrent.ExecutionContext
 
-class Registry[T <: Envelope]()
-                             (implicit actorSystem: ActorSystem, ex: ExecutionContext, config: Config, reader: Reads[T], writer: Writes[T], formatter: Format[T]) {
+class Registry[T <: Envelope]()(implicit actorSystem: ActorSystem, config: Config, formatter: Format[T]) {
 
   var register: mutable.Map[String, Sendable[T]] = mutable.Map[String, Sendable[T]]()
 
