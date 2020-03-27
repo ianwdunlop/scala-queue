@@ -3,19 +3,19 @@ package io.mdcatapult.klein.queue
 import java.net.URLEncoder
 import java.time.LocalDateTime
 
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.typesafe.config.Config
 import play.api.libs.json.{JsString, JsValue}
 import play.api.libs.ws.JsonBodyReadables._
 import play.api.libs.ws.WSAuthScheme
 import play.api.libs.ws.ahc._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 class Api(config: Config)(
-  implicit materialiser: ActorMaterializer, ex: ExecutionContext
+  implicit materialiser: Materializer, ex: ExecutionContext
 ) {
 
   sealed case class CacheEntry(ttl: LocalDateTime, queues: List[String])
@@ -44,7 +44,7 @@ class Api(config: Config)(
         r =>
           val qs: List[String] = (r.body[JsValue] \\ "destination").toList.flatMap({
             case v: JsString => Some(v.value)
-            case _ ⇒ None
+            case _ => None
           })
           // caches for an hour
           cache(key) = CacheEntry(LocalDateTime.now().plusHours(1), qs)
