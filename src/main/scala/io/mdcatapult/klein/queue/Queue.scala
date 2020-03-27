@@ -3,7 +3,7 @@ package io.mdcatapult.klein.queue
 import akka.actor._
 import com.spingo.op_rabbit.PlayJsonSupport._
 import com.spingo.op_rabbit.properties.MessageProperty
-import com.spingo.op_rabbit.{RabbitControl, Queue => RQueue, _}
+import com.spingo.op_rabbit.{RabbitControl, Queue => RQueue, RecoveryStrategy => OpRecoveryStrategy, _}
 import com.typesafe.config.Config
 import play.api.libs.json.Format
 
@@ -21,7 +21,7 @@ case class Queue[T <: Envelope](name: String, consumerName: Option[String] = Non
     Props(classOf[RabbitControl], ConnectionParams.fromConfig(config.getConfig("op-rabbit.connection"))),
     name
   )
-  implicit val recoveryStrategy: RecoveryStrategy = RecoveryStrategy.errorQueue("errors", consumerName)
+  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue("errors", consumerName)
 
   /**
     * subscribe to queue/topic and execute callback on receipt of message
@@ -29,15 +29,15 @@ case class Queue[T <: Envelope](name: String, consumerName: Option[String] = Non
     * @param callback Function
     * @return SubscriptionRef
     */
-  def subscribe(callback: (T, String) ⇒ Any, concurrent: Int = 1): SubscriptionRef = Subscription.run(rabbit) {
+  def subscribe(callback: (T, String) => Any, concurrent: Int = 1): SubscriptionRef = Subscription.run(rabbit) {
     import Directives._
     channel(qos = concurrent) {
       consume(RQueue.passive(topic(queue(name), List(topics.getOrElse(name))))) {
         (body(as[T]) & exchange) {
-          (msg, ex) ⇒
+          (msg, ex) =>
             callback(msg, ex) match {
-              case f: Future[Any] ⇒ ack(f)
-              case _ ⇒ ack
+              case f: Future[Any] => ack(f)
+              case _ => ack
             }
         }
       }
