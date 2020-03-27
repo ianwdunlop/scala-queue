@@ -1,9 +1,10 @@
+lazy val scala_2_13 = "2.13.1"
 lazy val scala_2_12 = "2.12.10"
 
-lazy val opRabbitVersion = "2.1.0"
-lazy val configVersion = "1.3.2"
-lazy val playVersion = "2.0.7"
-lazy val akkaVersion = "2.5.26"
+lazy val opRabbitVersion = "2.4.0"
+lazy val configVersion = "1.4.0"
+lazy val playVersion = "2.1.2"
+lazy val akkaVersion = "2.6.4"
 
 lazy val IntegrationTest = config("it") extend Test
 concurrentRestrictions in Global += Tags.limit(Tags.Test, 1)
@@ -14,8 +15,8 @@ lazy val root = (project in file("."))
     Defaults.itSettings,
     name                := "queue",
     organization        := "io.mdcatapult.klein",
-    scalaVersion        := scala_2_12,
-    crossScalaVersions  := scala_2_12 :: Nil,
+    scalaVersion        := scala_2_13,
+    crossScalaVersions  := scala_2_13 :: scala_2_12 :: Nil,
     useCoursier := false,
     scalacOptions ++= Seq(
       "-encoding", "utf-8",
@@ -38,19 +39,21 @@ lazy val root = (project in file("."))
     },
     libraryDependencies ++= Seq(
       "org.scalatest" %% "scalatest"                  % "3.1.0" % "it,test",
-      "com.spingo" %% "op-rabbit-core"                % opRabbitVersion,
-      "com.spingo" %% "op-rabbit-play-json"           % opRabbitVersion,
-      "com.spingo" %% "op-rabbit-json4s"              % opRabbitVersion,
-      "com.spingo" %% "op-rabbit-airbrake"            % opRabbitVersion,
-      "com.spingo" %% "op-rabbit-akka-stream"         % opRabbitVersion,
+      "com.github.pjfanning" %% "op-rabbit-core"                % opRabbitVersion,
+      "com.github.pjfanning" %% "op-rabbit-play-json"           % opRabbitVersion,
+      "com.github.pjfanning" %% "op-rabbit-json4s"              % opRabbitVersion,
+      "com.github.pjfanning" %% "op-rabbit-airbrake"            % opRabbitVersion,
+      "com.github.pjfanning" %% "akka-rabbitmq"         % "5.1.0",
       "com.spingo" %% "scoped-fixtures"         % "2.0.0" % "it,test",
       "ch.qos.logback" % "logback-classic"            % "1.2.3",
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
       "com.typesafe" % "config"                        % configVersion,
       "com.typesafe.play" %% "play-ahc-ws-standalone"  % playVersion,
       "com.typesafe.play" %% "play-ws-standalone-json" % playVersion,
       "com.typesafe.akka" %% "akka-actor"             % akkaVersion % "it,test",
       "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion % "it,test",
+      "com.typesafe.akka" %% "akka-protobuf"          % akkaVersion % "it,test",
+      "com.typesafe.akka" %% "akka-stream"            % akkaVersion % "it,test",
     )
   ).
   settings(

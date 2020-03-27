@@ -72,7 +72,9 @@ class RecoveryStrategySpec extends AnyFunSpec with Matchers with RabbitTestHelpe
           rabbitControl ! Message.queue(i, queueName)
         }
 
-        whenReady(Future.sequence(promises map (_.future)), Timeout(Span(20, Seconds))) { results: List[Int] =>
+        val xs: Future[Seq[Int]] = Future.sequence(promises.map(_.future))
+
+        whenReady(xs, Timeout(Span(20, Seconds))) { results: Seq[Int] =>
           results shouldBe range.toList
         }
       }
@@ -101,7 +103,7 @@ class RecoveryStrategySpec extends AnyFunSpec with Matchers with RabbitTestHelpe
 
       val seen: List[AtomicInteger] = range.map { _ => new AtomicInteger() }.toList
 
-      private lazy val promises = range.map { _ => Stream.continually(Promise[Int]).take(retryCount + 1).toVector }.toList
+      private lazy val promises = range.map { _ => LazyList.continually(Promise[Int]).take(retryCount + 1).toVector }.toList
 
       /** A list of received message contents that is completed once all messages have been received.
         *
