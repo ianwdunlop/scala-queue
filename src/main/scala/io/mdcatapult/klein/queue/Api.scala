@@ -1,7 +1,7 @@
 package io.mdcatapult.klein.queue
 
 import java.net.URLEncoder
-import java.time.LocalDateTime
+import java.time.{LocalDateTime, ZoneOffset}
 
 import akka.stream.Materializer
 import com.typesafe.config.Config
@@ -30,7 +30,7 @@ class Api(config: Config)(
     val port: Int = conf.getInt("management-port")
     val vhost: String = URLEncoder.encode(conf.getString("virtual-host"), "UTF-8")
 
-    val now = LocalDateTime.now()
+    val now = LocalDateTime.now(ZoneOffset.UTC)
     val key = s"$vhost/$exchange"
     val entry = cache.getOrElse(key, CacheEntry(now, List[String]()))
 
@@ -47,7 +47,7 @@ class Api(config: Config)(
             case _ => None
           })
           // caches for an hour
-          cache(key) = CacheEntry(LocalDateTime.now().plusHours(1), qs)
+          cache(key) = CacheEntry(now.plusHours(1), qs)
           qs
       })
     } else {

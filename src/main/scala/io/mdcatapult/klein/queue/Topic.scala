@@ -20,10 +20,12 @@ case class Topic[T <: Envelope](name: String, exchange: Option[String] = None)(
     *
     * @param envelope message to send
     */
-  def send(envelope: T, properties: Seq[MessageProperty] = Seq.empty): Unit = rabbit ! Message.topic(
-    envelope,
-    name,
-    exchange.getOrElse(RabbitControl.topicExchangeName),
-    properties)
+  def send(envelope: T, properties: Seq[MessageProperty] = Seq.empty): Unit =
+    rabbit ! Message.topic(
+      envelope,
+      name,
+      exchange.getOrElse(RabbitControl.topicExchangeName),
+      properties
+    )
 
 }
