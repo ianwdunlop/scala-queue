@@ -7,7 +7,7 @@ import com.spingo.op_rabbit.{RabbitControl, Queue => RQueue, RecoveryStrategy =>
 import com.typesafe.config.Config
 import play.api.libs.json.Format
 
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.Future
 
 /**
   * Queue Abstraction
@@ -16,11 +16,13 @@ case class Queue[T <: Envelope](name: String, consumerName: Option[String] = Non
                                (implicit actorSystem: ActorSystem, config: Config, formatter: Format[T])
   extends Subscribable with Sendable[T] {
 
-  implicit val ex: ExecutionContextExecutor = actorSystem.dispatcher
+  import actorSystem.dispatcher
+
   val rabbit: ActorRef = actorSystem.actorOf(
     Props(classOf[RabbitControl], ConnectionParams.fromConfig(config.getConfig("op-rabbit.connection"))),
     name
   )
+
   implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue("errors", consumerName)
 
   /**

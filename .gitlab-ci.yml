@@ -42,7 +42,7 @@ test:
     RABBITMQ_PASSWORD: guest
   script:
     - curl http://guest:guest@rabbitmq:15672/api/overview
-    - sbt clean test it:test
+    - sbt +clean +test +it:test
 
 publish-snapshot:
   stage: publish

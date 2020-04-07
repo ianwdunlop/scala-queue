@@ -39,7 +39,7 @@ lazy val root = (project in file("."))
       }
     },
     libraryDependencies ++= Seq(
-      "org.scala-lang.modules" %% "scala-collection-compat" % "2.1.3",
+      "org.scala-lang.modules" %% "scala-collection-compat" % "2.1.4",
       "org.scalatest" %% "scalatest"                  % "3.1.1" % "it,test",
       "com.github.pjfanning" %% "op-rabbit-core"                % opRabbitVersion,
       "com.github.pjfanning" %% "op-rabbit-play-json"           % opRabbitVersion,

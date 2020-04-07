@@ -103,7 +103,7 @@ class RecoveryStrategySpec extends AnyFunSpec with Matchers with RabbitTestHelpe
 
       val seen: List[AtomicInteger] = range.map { _ => new AtomicInteger() }.toList
 
-      private lazy val promises = range.map { _ => LazyList.continually(Promise[Int]).take(retryCount + 1).toVector }.toList
+      private lazy val promises = range.map { _ => Iterator.continually(Promise[Int]).take(retryCount + 1).toVector }.toList
 
       /** A list of received message contents that is completed once all messages have been received.
         *
