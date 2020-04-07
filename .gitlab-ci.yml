@@ -51,7 +51,7 @@ publish-snapshot:
       - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
   image: openjdk:14-slim
   script:
-    - sbt publish
+    - sbt +publish
   only:
     - develop
 
@@ -82,7 +82,7 @@ release-master:
     - git pull origin master
     - export PREVIOUS_TAG=$(git describe --tags --abbrev=0)
     - export GIT_LOG=$(echo "$(git log $PREVIOUS_TAG..HEAD --oneline --no-merges)" | awk -v ORS='  \\n' '1')
-    - sbt "release with-defaults"
+    - sbt "release cross with-defaults"
     - export RELEASE_TAG=$(git describe --tags --abbrev=0)
     - >
       curl --header 'Content-Type: application/json'
