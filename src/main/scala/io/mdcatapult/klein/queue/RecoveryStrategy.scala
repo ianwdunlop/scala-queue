@@ -6,8 +6,10 @@ import com.rabbitmq.client.Channel
 import com.spingo.op_rabbit.Directives.{ack, extract, property}
 import com.spingo.op_rabbit.Queue.ModeledArgs.{`x-expires`, `x-message-ttl`}
 import com.spingo.op_rabbit.RecoveryStrategy.{`x-original-exchange`, `x-original-routing-key`, `x-retry`, nack}
-import com.spingo.op_rabbit.properties.{Header, HeaderValue, MessageProperty, PimpedBasicProperties}
+import com.spingo.op_rabbit.properties.{Header, MessageProperty, PimpedBasicProperties}
+import com.spingo.op_rabbit.properties.HeaderValue.{StringHeaderValue => Value}
 import com.spingo.op_rabbit.{Binding, Directives, Handler, properties, Exchange => OpExchange, Queue => OpQueue, RecoveryStrategy => OpRecoveryStrategy}
+import io.mdcatapult.klein.queue.Converter.toStrings
 
 import scala.concurrent.duration.{FiniteDuration, _}
 
@@ -73,29 +75,24 @@ object RecoveryStrategy {
           ack
       }
 
-
-    private def getStackTrace(exception: Throwable): List[String] = {
-      val trace = exception.getStackTrace.map((s: StackTraceElement) => s.toString).toList
-      Option(exception.getCause) match {
-        case Some(cause) => trace ++ List("Exception Caused By:", cause.getMessage) ++ getStackTrace(cause)
-        case None => trace
-      }
-    }
-
-
     def apply(queueName: String, channel: Channel, exception: Throwable): Handler = {
       getRetryCount {
         case thisRetryCount if thisRetryCount < retryCount =>
           enqueue(queueName, channel, genRetryBinding(queueName), List(`x-retry`(thisRetryCount + 1)))
         case _ =>
-          enqueue(errorQueueName, channel, genErrorsBinding, List(
-            Header("x-consumer", HeaderValue.StringHeaderValue(consumerName.getOrElse("undeclared"))),
-            Header("x-queue", HeaderValue.StringHeaderValue(queueName)),
-            Header("x-datetime", HeaderValue.StringHeaderValue(LocalDateTime.now().toString)),
-            Header("x-exception", HeaderValue.StringHeaderValue(exception.getClass.getCanonicalName)),
-            Header("x-message", HeaderValue.StringHeaderValue(exception.getMessage)),
-            Header("x-stack-trace", HeaderValue.StringHeaderValue(getStackTrace(exception).mkString("\n"))),
-          ))
+          enqueue(
+            errorQueueName,
+            channel,
+            genErrorsBinding,
+            List(
+              Header("x-consumer", Value(consumerName.getOrElse("undeclared"))),
+              Header("x-queue", Value(queueName)),
+              Header("x-datetime", Value(LocalDateTime.now().toString)),
+              Header("x-exception", Value(exception.getClass.getCanonicalName)),
+              Header("x-message", Value(exception.getMessage)),
+              Header("x-stack-trace", Value(toStrings(exception).mkString("\n"))),
+            )
+          )
       }
     }
   }
