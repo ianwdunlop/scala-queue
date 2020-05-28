@@ -15,7 +15,7 @@ import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 class Api(config: Config)(
-  implicit materialiser: Materializer, ex: ExecutionContext
+  implicit m: Materializer, ec: ExecutionContext
 ) {
 
   sealed case class CacheEntry(ttl: LocalDateTime, queues: List[String])
@@ -23,7 +23,7 @@ class Api(config: Config)(
   val cache: mutable.Map[String, CacheEntry] = mutable.Map[String, CacheEntry]()
   lazy val httpClient: StandaloneAhcWSClient = StandaloneAhcWSClient(AhcWSClientConfigFactory.forConfig(config))
 
-  def list_queues(exchange: String, ttl: Option[Int] = Some(3600)): Future[List[String]] = {
+  def list_queues(exchange: String): Future[List[String]] = {
 
     val conf: Config = config.getConfig("op-rabbit.connection")
     val host: String = conf.getStringList("hosts").asScala.head
