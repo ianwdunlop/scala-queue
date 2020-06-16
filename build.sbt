@@ -1,5 +1,4 @@
-lazy val scala_2_13 = "2.13.1"
-lazy val scala_2_12 = "2.12.10"
+lazy val scala_2_13 = "2.13.2"
 
 lazy val opRabbitVersion = "2.4.0"
 lazy val configVersion = "1.4.0"
@@ -16,7 +15,7 @@ lazy val root = (project in file("."))
     name                := "queue",
     organization        := "io.mdcatapult.klein",
     scalaVersion        := scala_2_13,
-    crossScalaVersions  := scala_2_13 :: scala_2_12 :: Nil,
+    crossScalaVersions  := scala_2_13 :: Nil,
     useCoursier := false,
     scalacOptions ++= Seq(
       "-encoding", "utf-8",
@@ -39,7 +38,6 @@ lazy val root = (project in file("."))
       }
     },
     libraryDependencies ++= Seq(
-      "org.scala-lang.modules" %% "scala-collection-compat" % "2.1.4",
       "org.scalatest" %% "scalatest"                  % "3.1.1" % "it,test",
       "com.github.pjfanning" %% "op-rabbit-core"                % opRabbitVersion,
       "com.github.pjfanning" %% "op-rabbit-play-json"           % opRabbitVersion,

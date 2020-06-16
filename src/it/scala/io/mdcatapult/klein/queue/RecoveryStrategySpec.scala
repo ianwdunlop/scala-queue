@@ -161,7 +161,11 @@ class RecoveryStrategySpec extends AnyFunSpec with Matchers with RabbitTestHelpe
         override val retryCount: Int = _retryCount
 
         implicit val recoveryStrategy: OpRecoveryStrategy =
-          MdcRecoveryStrategy(MdcRecoveryStrategy.errorQueue(errorQueueName = "err", redeliverDelay = 1.millis, retryCount = retryCount).apply)
+          MdcRecoveryStrategy(
+            MdcRecoveryStrategy.errorQueue(
+              errorQueueName = "err",
+              retryCount = retryCount
+            ).apply)
 
         private val subscriptionDef = countAndRejectSubscription()
 
