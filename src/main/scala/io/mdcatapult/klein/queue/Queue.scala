@@ -3,7 +3,7 @@ package io.mdcatapult.klein.queue
 import akka.actor._
 import com.spingo.op_rabbit.PlayJsonSupport._
 import com.spingo.op_rabbit.properties.MessageProperty
-import com.spingo.op_rabbit.{RabbitControl, Queue => RQueue, RecoveryStrategy => OpRecoveryStrategy, _}
+import com.spingo.op_rabbit.{Queue => RQueue, RecoveryStrategy => OpRecoveryStrategy, _}
 import com.typesafe.config.Config
 import play.api.libs.json.Format
 
@@ -19,7 +19,7 @@ case class Queue[T <: Envelope](name: String, consumerName: Option[String] = Non
   import actorSystem.dispatcher
 
   val rabbit: ActorRef = actorSystem.actorOf(
-    Props(classOf[RabbitControl], ConnectionParams.fromConfig(config.getConfig("op-rabbit.connection"))),
+    Props(classOf[Rabbit], ConnectionParams.fromConfig(config.getConfig("op-rabbit.connection"))),
     name
   )
 
