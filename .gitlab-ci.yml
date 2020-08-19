@@ -32,6 +32,7 @@ test:
     RABBITMQ_USERNAME: guest
     RABBITMQ_PASSWORD: guest
   script:
+    - sleep 5
     - curl http://guest:guest@rabbitmq:15672/api/overview
     - sbt +clean coverage +test +it:test coverageReport
   except:
