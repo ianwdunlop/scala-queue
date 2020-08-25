@@ -1,7 +1,10 @@
 package io.mdcatapult.klein.queue
 
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+import akka.pattern.ask
+import akka.util.{Timeout => AkkaTimeout}
 import com.rabbitmq.client
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.spingo.op_rabbit.{Binding, Directives, Message, RabbitErrorLogging, Subscription, Exchange => OpExchange, RecoveryStrategy => OpRecoveryStrategy}
@@ -71,6 +74,11 @@ class RecoveryStrategySpec extends AnyFunSpec with Matchers with RabbitTestHelpe
         range foreach { i =>
           rabbitControl ! Message.queue(i, queueName)
         }
+
+        // TODO: Fix this assertion and put it in it's own test block
+        implicit val timeout: AkkaTimeout = AkkaTimeout(5, TimeUnit.SECONDS)
+        val liveness: Boolean = Await.result({rabbitControl ? Liveness}.mapTo[Boolean], Duration.Inf)
+        liveness shouldBe(true)
 
         val xs: Future[Seq[Int]] = Future.sequence(promises.map(_.future))
 

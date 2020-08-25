@@ -3,6 +3,9 @@ package io.mdcatapult.klein.queue
 import com.spingo.op_rabbit.RabbitControl
 import com.spingo.op_rabbit.RabbitControl.Run
 
+
+case object Liveness
+
 class Rabbit extends RabbitControl {
 
   /**
@@ -14,4 +17,13 @@ class Rabbit extends RabbitControl {
   def checkLiveness(): Boolean = {
     running == Run
   }
+
+  override def receive = {
+    case Liveness =>
+      checkLiveness()
+    case x =>
+      println("receiving other messages")
+      super.receive(x)
+  }
+
 }
