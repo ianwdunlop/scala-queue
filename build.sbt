@@ -53,6 +53,7 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion % "it,test",
       "com.typesafe.akka" %% "akka-protobuf"          % akkaVersion % "it,test",
       "com.typesafe.akka" %% "akka-stream"            % akkaVersion % "it,test",
+      "com.typesafe.akka" %% "akka-testkit"           % akkaVersion % "it,test",
     )
   ).
   settings(
