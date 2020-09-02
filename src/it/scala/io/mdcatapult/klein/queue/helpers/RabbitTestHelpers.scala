@@ -6,6 +6,7 @@ import akka.util.Timeout
 import com.rabbitmq.client.Channel
 import com.spingo.op_rabbit.{MessageForPublicationLike, RabbitControl, RabbitMarshaller, RabbitUnmarshaller}
 import com.spingo.scoped_fixtures.{ScopedFixtures, TestFixture}
+import io.mdcatapult.klein.queue.Rabbit
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future, Promise}
@@ -13,7 +14,7 @@ import scala.language.postfixOps
 
 object RabbitTestHelpers {
 
-  val controlProps: Props = Props[RabbitControl]
+  val controlProps: Props = Props[Rabbit]
 }
 
 trait RabbitTestHelpers extends ScopedFixtures {

@@ -2,6 +2,11 @@ package io.mdcatapult.klein.queue
 
 import java.util.concurrent.atomic.AtomicInteger
 
+import akka.actor.{ActorSystem, Props}
+import akka.pattern.ask
+import akka.testkit.{ImplicitSender, TestKit}
+import com.typesafe.config.ConfigFactory
+import org.scalatest.funspec.AnyFunSpecLike
 import com.rabbitmq.client
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.spingo.op_rabbit.{Binding, Directives, Message, RabbitErrorLogging, Subscription, Exchange => OpExchange, RecoveryStrategy => OpRecoveryStrategy}
@@ -9,7 +14,6 @@ import io.mdcatapult.klein.queue.helpers.RabbitTestHelpers
 import io.mdcatapult.klein.queue.{RecoveryStrategy => MdcRecoveryStrategy}
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
-import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Seconds, Span}
 
@@ -23,7 +27,10 @@ import scala.util.Random
   * Other existing code has been modified to make it hopefully more readable, and sometimes to fix weaknesses in the
   * original test.
   */
-class RecoveryStrategySpec extends AnyFunSpec with Matchers with RabbitTestHelpers with ScalaFutures with Eventually {
+class RecoveryStrategySpec extends TestKit(ActorSystem("QueueIntegrationTest", ConfigFactory.parseString(
+"""
+akka.loggers = ["akka.testkit.TestEventListener"]
+"""))) with ImplicitSender with AnyFunSpecLike with Matchers with RabbitTestHelpers with ScalaFutures with Eventually {
 
   private val _queueName = ScopedFixture[String] { setter =>
     val name = s"test-queue-rabbit-control-${Math.random()}"
@@ -77,6 +84,16 @@ class RecoveryStrategySpec extends AnyFunSpec with Matchers with RabbitTestHelpe
         whenReady(xs, Timeout(Span(20, Seconds))) { results: Seq[Int] =>
           results shouldBe range.toList
         }
+      }
+    }
+  }
+
+  describe("When checking for liveness") {
+    it ("gets a reply") {
+      val rb = actorSystem.actorOf(Props(new Rabbit()))
+      val a: Future[Any] = rb ? Liveness
+      whenReady(a, Timeout(Span(20, Seconds))) { result =>
+        result shouldBe true
       }
     }
   }
