@@ -2,18 +2,18 @@ package io.mdcatapult.klein.queue
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit}
-import com.typesafe.config.ConfigFactory
-import org.scalatest.funspec.AnyFunSpecLike
 import com.rabbitmq.client
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.spingo.op_rabbit.{Binding, Directives, Message, RabbitErrorLogging, Subscription, Exchange => OpExchange, RecoveryStrategy => OpRecoveryStrategy}
+import com.typesafe.config.ConfigFactory
 import io.mdcatapult.klein.queue.helpers.RabbitTestHelpers
 import io.mdcatapult.klein.queue.{RecoveryStrategy => MdcRecoveryStrategy}
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
+import org.scalatest.funspec.AnyFunSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Seconds, Span}
 
@@ -90,7 +90,7 @@ akka.loggers = ["akka.testkit.TestEventListener"]
 
   describe("When checking for liveness") {
     it ("gets a reply") {
-      val rb = actorSystem.actorOf(Props(new Rabbit()))
+      val rb = actorSystem.actorOf(RabbitTestHelpers.controlProps)
       val a: Future[Any] = rb ? Liveness
       whenReady(a, Timeout(Span(20, Seconds))) { result =>
         result shouldBe true
