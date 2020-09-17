@@ -25,7 +25,6 @@ class Rabbit(connection: Either[ConnectionParams, ActorRef]) extends RabbitContr
     case Liveness =>
       sender() ! checkLiveness()
     case x =>
-      println("receiving other messages")
       super.receive(x)
   }
 
