@@ -6,6 +6,7 @@ import com.spingo.op_rabbit.RecoveryStrategy.{`x-original-exchange`, `x-original
 import com.spingo.op_rabbit.properties.{MessageProperty, PimpedBasicProperties}
 import com.spingo.op_rabbit.{Binding, Directives, Handler, properties, Exchange => OpExchange, Queue => OpQueue, RecoveryStrategy => OpRecoveryStrategy}
 import com.typesafe.scalalogging.LazyLogging
+import org.slf4j.MDC
 
 class RecoveryStrategyWrap(fn: (String, Channel, Throwable) => Handler) extends OpRecoveryStrategy {
   def apply(queueName: String, ch: Channel, ex: Throwable): Handler = fn(queueName, ch, ex)
@@ -58,8 +59,10 @@ object RecoveryStrategy extends LazyLogging {
         case thisRetryCount if thisRetryCount < retryCount =>
           enqueue(queueName, channel, List(`x-retry`(thisRetryCount + 1)))
         case _ =>
+          MDC.put("queue", queueName)
           body(Directives.as[String]) { message =>
-            logger.error(s"Retries exhausted for Queue: $queueName, Exception:  $exception, Original Message: $message")
+            MDC.put("original-message", message)
+            logger.error(s"Exhausted retries for queue $queueName", exception)
             nack()
           }
       }
