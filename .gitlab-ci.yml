@@ -10,6 +10,7 @@ variables:
   SBT_OPTS: "-Dsbt.global.base=sbt-cache/.sbtboot -Dsbt.boot.directory=sbt-cache/.boot -Dsbt.ivy.home=sbt-cache/.ivy"
   RABBITMQ_DEFAULT_USER: guest
   RABBITMQ_DEFAULT_PASS: guest
+  RABBITMQ_DEFAULT_VHOST: doclib
 
 cache:
   key: "${CI_COMMIT_REF_SLUG}"
