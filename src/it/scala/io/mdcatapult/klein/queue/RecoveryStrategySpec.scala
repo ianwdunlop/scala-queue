@@ -184,7 +184,7 @@ akka.loggers = ["akka.testkit.TestEventListener"]
               exclusive  = false,
               autoDelete = true),
               consumerTagPrefix = Some("error123")) {
-              body(as[Int]) { message =>
+              body(as[Int]) { _ =>
                 errorCounter.incrementAndGet()
                 ack
               }
