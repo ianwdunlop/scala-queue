@@ -48,7 +48,7 @@ akka.loggers = ["akka.testkit.TestEventListener"]
 
   describe("consuming messages asynchronously") {
     it("receives and acks every message") {
-      implicit val recoveryStrategy: OpRecoveryStrategy = MdcRecoveryStrategy(MdcRecoveryStrategy.errorQueue("err").apply)
+      implicit val recoveryStrategy: OpRecoveryStrategy = MdcRecoveryStrategy(MdcRecoveryStrategy.errorQueue("err", sendErrors = true).apply)
       new RabbitFixtures {
         import RabbitErrorLogging.defaultLogger
 
@@ -65,7 +65,6 @@ akka.loggers = ["akka.testkit.TestEventListener"]
               autoDelete = true),
               consumerTagPrefix = Some("testing123")) {
               body(as[Int]) { i =>
-                //println(s"Received #$i")
                 Thread.sleep(Math.round(generator.nextDouble() * 100))
                 promises(i).success(i)
                 ack
@@ -78,9 +77,7 @@ akka.loggers = ["akka.testkit.TestEventListener"]
         range foreach { i =>
           rabbitControl ! Message.queue(i, queueName)
         }
-
         val xs: Future[Seq[Int]] = Future.sequence(promises.map(_.future))
-
         whenReady(xs, Timeout(Span(20, Seconds))) { results: Seq[Int] =>
           results shouldBe range.toList
         }
@@ -157,11 +154,11 @@ akka.loggers = ["akka.testkit.TestEventListener"]
         }
     }
 
-    it("attempts every message 2 times when retryCount = 1")(recoveryStrategyWithRetry(retryCount = 1, messagesPerRequest = 2))
+    it("attempts every message 2 times when retryCount = 1 and sends to error queue")(recoveryStrategyWithRetry(retryCount = 1, messagesPerRequest = 2))
 
-    it("attempts every message 3 times when retryCount = 2")(recoveryStrategyWithRetry(retryCount = 2, messagesPerRequest = 3))
+    it("attempts every message 3 times when retryCount = 2 and sends to error queue")(recoveryStrategyWithRetry(retryCount = 2, messagesPerRequest = 3))
 
-    it("attempts every message 4 times when retryCount = 3")(recoveryStrategyWithRetry(retryCount = 3, messagesPerRequest = 4))
+    it("attempts every message 4 times when retryCount = 3 and sends to error queue")(recoveryStrategyWithRetry(retryCount = 3, messagesPerRequest = 4))
 
     /** Constructs a RecoveryStrategy to have a given number of retries.  Messages are then fired against the queue which
       * will all be rejected.  It then verifies that the expected number of messages (including to the error queue)
@@ -174,13 +171,33 @@ akka.loggers = ["akka.testkit.TestEventListener"]
     def recoveryStrategyWithRetry(retryCount: Int, messagesPerRequest: Int): RedeliveryFixtures = {
       val _retryCount = retryCount
 
+
       new RedeliveryFixtures with RabbitFixtures {
+        val errorCounter: AtomicInteger = new AtomicInteger()
+        // Error queue to send message to after retries exhausted
+        Subscription.run(rabbitControl) {
+          import Directives._
+          channel() {
+            consume(queue(
+              "err",
+              durable    = false,
+              exclusive  = false,
+              autoDelete = true),
+              consumerTagPrefix = Some("error123")) {
+              body(as[Int]) { message =>
+                errorCounter.incrementAndGet()
+                ack
+              }
+            }
+          }
+        }
         override val retryCount: Int = _retryCount
 
         implicit val recoveryStrategy: OpRecoveryStrategy =
           MdcRecoveryStrategy(
             MdcRecoveryStrategy.errorQueue(
               errorQueueName = "err",
+              sendErrors = true,
               retryCount = retryCount
             ).apply)
 
@@ -197,7 +214,12 @@ akka.loggers = ["akka.testkit.TestEventListener"]
 
           messagesReceivedContents should have length expectedMessagesSent
           (seen map (_.get)).distinct should be(List(retryCount + 1))
-          eventually(Timeout(Span(20, Seconds))) {errors should be(expectedMessagesSent)}
+          eventually(Timeout(Span(20, Seconds))) {
+            errors should be(expectedMessagesSent)
+          }
+          eventually(Timeout(Span(20, Seconds))){
+            errorCounter.get() should equal(10)
+          }
         }
       }
     }

@@ -5,10 +5,9 @@ import java.time.LocalDateTime
 import com.rabbitmq.client.Channel
 import com.spingo.op_rabbit.Directives._
 import com.spingo.op_rabbit.RecoveryStrategy.{`x-original-exchange`, `x-original-routing-key`, `x-retry`}
-import com.spingo.op_rabbit.properties.{Header, MessageProperty, PimpedBasicProperties}
 import com.spingo.op_rabbit.properties.HeaderValue.{StringHeaderValue => Value}
+import com.spingo.op_rabbit.properties.{Header, MessageProperty, PimpedBasicProperties}
 import com.spingo.op_rabbit.{Binding, Directives, Handler, properties, Exchange => OpExchange, Queue => OpQueue, RecoveryStrategy => OpRecoveryStrategy}
-import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.klein.queue.Converter.toStrings
 import org.slf4j.MDC
@@ -25,12 +24,11 @@ object RecoveryStrategy extends LazyLogging {
 
   def errorQueue(
                   errorQueueName: String,
+                  sendErrors: Boolean = false,
                   consumerName: Option[String] = None,
                   exchange: OpExchange[OpExchange.Direct.type] = OpExchange.default,
                   retryCount: Int = 3,
                 ): OpRecoveryStrategy = new OpRecoveryStrategy {
-
-    val config: Config = ConfigFactory.load()
 
     private val getRetryCount = property(`x-retry`) | Directives.provide(0)
 
@@ -44,7 +42,7 @@ object RecoveryStrategy extends LazyLogging {
           )),
         exchange)
 
-    private def enqueue(queueName: String, channel: Channel, props: Seq[MessageProperty]): Handler =
+    private def enqueue(queueName: String, channel: Channel, props: Seq[MessageProperty]): Handler = {
       (extract(identity) & OpRecoveryStrategy.originalRoutingKey & OpRecoveryStrategy.originalExchange) {
         (delivery, rk, x) =>
           val binding: Binding = genRetryBinding(queueName)
@@ -57,6 +55,7 @@ object RecoveryStrategy extends LazyLogging {
             delivery.body)
           ack
       }
+    }
 
     /*
      * Re-queue the message if there are any retries available. Otherwise log the error.
@@ -71,7 +70,7 @@ object RecoveryStrategy extends LazyLogging {
           body(Directives.as[String]) { message =>
             MDC.put("original-message", message)
             logger.error(s"Exhausted retries for queue $queueName", exception)
-            if (config.getBoolean("error.queue")) {
+            if (sendErrors) {
               enqueue(
                 errorQueueName,
                 channel,
