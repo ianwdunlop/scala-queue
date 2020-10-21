@@ -23,7 +23,7 @@ case class Queue[T <: Envelope](name: String, consumerName: Option[String] = Non
     name
   )
 
-  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueueName = "errors", consumerName = consumerName)
+  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueueName = "errors", sendErrors = config.getBoolean("error.queue"), consumerName = consumerName)
 
   /**
     * subscribe to queue/topic and execute callback on receipt of message
