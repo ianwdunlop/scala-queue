@@ -154,11 +154,17 @@ akka.loggers = ["akka.testkit.TestEventListener"]
         }
     }
 
-    it("attempts every message 2 times when retryCount = 1 and sends to error queue")(recoveryStrategyWithRetry(retryCount = 1, messagesPerRequest = 2))
+    it("attempts every message 2 times when retryCount = 1 and sends to error queue")(recoveryStrategyWithRetry(retryCount = 1, messagesPerRequest = 2, errorQueue = true))
 
-    it("attempts every message 3 times when retryCount = 2 and sends to error queue")(recoveryStrategyWithRetry(retryCount = 2, messagesPerRequest = 3))
+    it("attempts every message 3 times when retryCount = 2 and sends to error queue")(recoveryStrategyWithRetry(retryCount = 2, messagesPerRequest = 3, errorQueue = true))
 
-    it("attempts every message 4 times when retryCount = 3 and sends to error queue")(recoveryStrategyWithRetry(retryCount = 3, messagesPerRequest = 4))
+    it("attempts every message 4 times when retryCount = 3 and sends to error queue")(recoveryStrategyWithRetry(retryCount = 3, messagesPerRequest = 4, errorQueue = true))
+
+    it("attempts every message 2 times when retryCount = 1 and sends no messages to error queue")(recoveryStrategyWithRetry(retryCount = 1, messagesPerRequest = 2, errorQueue = false))
+
+    it("attempts every message 3 times when retryCount = 2 and sends no messages to error queue")(recoveryStrategyWithRetry(retryCount = 2, messagesPerRequest = 3, errorQueue = false))
+
+    it("attempts every message 4 times when retryCount = 3 and sends no messages to error queue")(recoveryStrategyWithRetry(retryCount = 3, messagesPerRequest = 4, errorQueue = false))
 
     /** Constructs a RecoveryStrategy to have a given number of retries.  Messages are then fired against the queue which
       * will all be rejected.  It then verifies that the expected number of messages (including to the error queue)
@@ -168,9 +174,8 @@ akka.loggers = ["akka.testkit.TestEventListener"]
       * @param messagesPerRequest the number of messages that should be sent by each request, namely 1 per retry + 1 to the error queue
       * @return unimportant as the key testing OneForOneStrategy happens within its constructor, but if needed calls could be made to it to help diagnose a testing issue
       */
-    def recoveryStrategyWithRetry(retryCount: Int, messagesPerRequest: Int): RedeliveryFixtures = {
+    def recoveryStrategyWithRetry(retryCount: Int, messagesPerRequest: Int, errorQueue: Boolean): RedeliveryFixtures = {
       val _retryCount = retryCount
-
 
       new RedeliveryFixtures with RabbitFixtures {
         val errorCounter: AtomicInteger = new AtomicInteger()
@@ -197,7 +202,7 @@ akka.loggers = ["akka.testkit.TestEventListener"]
           MdcRecoveryStrategy(
             MdcRecoveryStrategy.errorQueue(
               errorQueueName = "err",
-              sendErrors = true,
+              sendErrors = errorQueue,
               retryCount = retryCount
             ).apply)
 
@@ -218,7 +223,11 @@ akka.loggers = ["akka.testkit.TestEventListener"]
             errors should be(expectedMessagesSent)
           }
           eventually(Timeout(Span(20, Seconds))){
-            errorCounter.get() should equal(10)
+            if (errorQueue){
+              errorCounter.get() should equal(10)
+            } else {
+              errorCounter.get() should equal(0)
+            }
           }
         }
       }
