@@ -53,13 +53,15 @@ object RecoveryStrategy extends LazyLogging {
               `x-original-routing-key`(rk),
               `x-original-exchange`(x)),
             delivery.body)
-          ack
+          // nack the original message, don't requeue, don't acknowledge
+          nack()
       }
     }
 
     /*
-     * Re-queue the message if there are any retries available. Otherwise log the error.
-     * Optionally send the error to the errors queue if the error.queue config flag is true
+     * Re-queue the message if there are any retries available. Otherwise log the error and
+     * nack the message. Optionally send the error to the errors queue if
+     * the error.queue config flag is true. The re-queued message includes a retry count header.
      */
     def apply(queueName: String, channel: Channel, exception: Throwable): Handler =
       getRetryCount {
