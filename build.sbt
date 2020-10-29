@@ -28,8 +28,7 @@ lazy val root = (project in file("."))
     ),
     resolvers         ++= Seq(
       "MDC Nexus Releases" at "https://nexus.mdcatapult.io/repository/maven-releases/",
-      "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/",
-      "HMRC Releases" at "https://dl.bintray.com/hmrc/releases"),
+      "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/"),
     credentials       += {
       sys.env.get("NEXUS_PASSWORD") match {
         case Some(p) =>
