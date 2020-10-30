@@ -2,18 +2,18 @@ package io.mdcatapult.klein.queue
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.testkit.{ImplicitSender, TestKit}
-import com.typesafe.config.ConfigFactory
-import org.scalatest.funspec.AnyFunSpecLike
 import com.rabbitmq.client
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.spingo.op_rabbit.{Binding, Directives, Message, RabbitErrorLogging, Subscription, Exchange => OpExchange, RecoveryStrategy => OpRecoveryStrategy}
+import com.typesafe.config.ConfigFactory
 import io.mdcatapult.klein.queue.helpers.RabbitTestHelpers
 import io.mdcatapult.klein.queue.{RecoveryStrategy => MdcRecoveryStrategy}
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
+import org.scalatest.funspec.AnyFunSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Seconds, Span}
 
@@ -48,7 +48,7 @@ akka.loggers = ["akka.testkit.TestEventListener"]
 
   describe("consuming messages asynchronously") {
     it("receives and acks every message") {
-      implicit val recoveryStrategy: OpRecoveryStrategy = MdcRecoveryStrategy(MdcRecoveryStrategy.errorQueue("err").apply)
+      implicit val recoveryStrategy: OpRecoveryStrategy = MdcRecoveryStrategy(MdcRecoveryStrategy.errorQueue("err", sendErrors = true).apply)
       new RabbitFixtures {
         import RabbitErrorLogging.defaultLogger
 
@@ -65,7 +65,6 @@ akka.loggers = ["akka.testkit.TestEventListener"]
               autoDelete = true),
               consumerTagPrefix = Some("testing123")) {
               body(as[Int]) { i =>
-                //println(s"Received #$i")
                 Thread.sleep(Math.round(generator.nextDouble() * 100))
                 promises(i).success(i)
                 ack
@@ -78,9 +77,7 @@ akka.loggers = ["akka.testkit.TestEventListener"]
         range foreach { i =>
           rabbitControl ! Message.queue(i, queueName)
         }
-
         val xs: Future[Seq[Int]] = Future.sequence(promises.map(_.future))
-
         whenReady(xs, Timeout(Span(20, Seconds))) { results: Seq[Int] =>
           results shouldBe range.toList
         }
@@ -90,7 +87,7 @@ akka.loggers = ["akka.testkit.TestEventListener"]
 
   describe("When checking for liveness") {
     it ("gets a reply") {
-      val rb = actorSystem.actorOf(Props(new Rabbit()))
+      val rb = actorSystem.actorOf(RabbitTestHelpers.controlProps)
       val a: Future[Any] = rb ? Liveness
       whenReady(a, Timeout(Span(20, Seconds))) { result =>
         result shouldBe true
@@ -157,11 +154,17 @@ akka.loggers = ["akka.testkit.TestEventListener"]
         }
     }
 
-    it("attempts every message 2 times when retryCount = 1")(recoveryStrategyWithRetry(retryCount = 1, messagesPerRequest = 2))
+    it("attempts every message 2 times when retryCount = 1 and sends to error queue")(recoveryStrategyWithRetry(retryCount = 1, messagesPerRequest = 2, errorQueue = true))
 
-    it("attempts every message 3 times when retryCount = 2")(recoveryStrategyWithRetry(retryCount = 2, messagesPerRequest = 3))
+    it("attempts every message 3 times when retryCount = 2 and sends to error queue")(recoveryStrategyWithRetry(retryCount = 2, messagesPerRequest = 3, errorQueue = true))
 
-    it("attempts every message 4 times when retryCount = 3")(recoveryStrategyWithRetry(retryCount = 3, messagesPerRequest = 4))
+    it("attempts every message 4 times when retryCount = 3 and sends to error queue")(recoveryStrategyWithRetry(retryCount = 3, messagesPerRequest = 4, errorQueue = true))
+
+    it("attempts every message 2 times when retryCount = 1 and sends no messages to error queue")(recoveryStrategyWithRetry(retryCount = 1, messagesPerRequest = 2, errorQueue = false))
+
+    it("attempts every message 3 times when retryCount = 2 and sends no messages to error queue")(recoveryStrategyWithRetry(retryCount = 2, messagesPerRequest = 3, errorQueue = false))
+
+    it("attempts every message 4 times when retryCount = 3 and sends no messages to error queue")(recoveryStrategyWithRetry(retryCount = 3, messagesPerRequest = 4, errorQueue = false))
 
     /** Constructs a RecoveryStrategy to have a given number of retries.  Messages are then fired against the queue which
       * will all be rejected.  It then verifies that the expected number of messages (including to the error queue)
@@ -171,16 +174,35 @@ akka.loggers = ["akka.testkit.TestEventListener"]
       * @param messagesPerRequest the number of messages that should be sent by each request, namely 1 per retry + 1 to the error queue
       * @return unimportant as the key testing OneForOneStrategy happens within its constructor, but if needed calls could be made to it to help diagnose a testing issue
       */
-    def recoveryStrategyWithRetry(retryCount: Int, messagesPerRequest: Int): RedeliveryFixtures = {
+    def recoveryStrategyWithRetry(retryCount: Int, messagesPerRequest: Int, errorQueue: Boolean): RedeliveryFixtures = {
       val _retryCount = retryCount
 
       new RedeliveryFixtures with RabbitFixtures {
+        val errorCounter: AtomicInteger = new AtomicInteger()
+        // Error queue to send message to after retries exhausted
+        Subscription.run(rabbitControl) {
+          import Directives._
+          channel() {
+            consume(queue(
+              "err",
+              durable    = false,
+              exclusive  = false,
+              autoDelete = true),
+              consumerTagPrefix = Some("error123")) {
+              body(as[Int]) { _ =>
+                errorCounter.incrementAndGet()
+                ack
+              }
+            }
+          }
+        }
         override val retryCount: Int = _retryCount
 
         implicit val recoveryStrategy: OpRecoveryStrategy =
           MdcRecoveryStrategy(
             MdcRecoveryStrategy.errorQueue(
               errorQueueName = "err",
+              sendErrors = errorQueue,
               retryCount = retryCount
             ).apply)
 
@@ -197,7 +219,16 @@ akka.loggers = ["akka.testkit.TestEventListener"]
 
           messagesReceivedContents should have length expectedMessagesSent
           (seen map (_.get)).distinct should be(List(retryCount + 1))
-          eventually(Timeout(Span(20, Seconds))) {errors should be(expectedMessagesSent)}
+          eventually(Timeout(Span(20, Seconds))) {
+            errors should be(expectedMessagesSent)
+          }
+          eventually(Timeout(Span(20, Seconds))){
+            if (errorQueue){
+              errorCounter.get() should equal(10)
+            } else {
+              errorCounter.get() should equal(0)
+            }
+          }
         }
       }
     }
