@@ -38,14 +38,14 @@ lazy val root = (project in file("."))
       }
     },
     libraryDependencies ++= Seq(
+      "io.mdcatapult.klein" %% "util"                 % "1.1.1-SNAPSHOT",
+
       "org.scalatest" %% "scalatest"                  % "3.1.1" % "it,test",
       "com.github.pjfanning" %% "op-rabbit-core"                % opRabbitVersion,
       "com.github.pjfanning" %% "op-rabbit-play-json"           % opRabbitVersion,
       "com.github.pjfanning" %% "op-rabbit-json4s"              % opRabbitVersion,
       "com.github.pjfanning" %% "op-rabbit-airbrake"            % opRabbitVersion,
-      "com.spingo" %% "scoped-fixtures"         % "2.0.0" % "it,test",
-      "ch.qos.logback" % "logback-classic"            % "1.2.3",
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
+      "com.spingo" %% "scoped-fixtures"                         % "2.0.0" % "it,test",
       "com.typesafe" % "config"                        % configVersion,
       "com.typesafe.play" %% "play-ahc-ws-standalone"  % playWsStandaloneVersion,
       "com.typesafe.play" %% "play-ws-standalone-json" % playWsStandaloneVersion,
@@ -53,6 +53,7 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion % "it,test",
       "com.typesafe.akka" %% "akka-protobuf"          % akkaVersion % "it,test",
       "com.typesafe.akka" %% "akka-stream"            % akkaVersion % "it,test",
+      "com.typesafe.akka" %% "akka-testkit"           % akkaVersion % "it,test"
     )
   ).
   settings(

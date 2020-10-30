@@ -3,8 +3,9 @@ package io.mdcatapult.klein.queue
 import akka.actor._
 import com.spingo.op_rabbit.PlayJsonSupport._
 import com.spingo.op_rabbit.properties.MessageProperty
-import com.spingo.op_rabbit.{RabbitControl, Queue => RQueue, RecoveryStrategy => OpRecoveryStrategy, _}
+import com.spingo.op_rabbit.{Queue => RQueue, RecoveryStrategy => OpRecoveryStrategy, _}
 import com.typesafe.config.Config
+import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.Format
 
 import scala.concurrent.Future
@@ -14,16 +15,16 @@ import scala.concurrent.Future
   */
 case class Queue[T <: Envelope](name: String, consumerName: Option[String] = None, topics: Option[String] = None)
                                (implicit actorSystem: ActorSystem, config: Config, formatter: Format[T])
-  extends Subscribable with Sendable[T] {
+  extends Subscribable with Sendable[T] with LazyLogging {
 
   import actorSystem.dispatcher
 
   val rabbit: ActorRef = actorSystem.actorOf(
-    Props(classOf[RabbitControl], ConnectionParams.fromConfig(config.getConfig("op-rabbit.connection"))),
+    Props(classOf[Rabbit], ConnectionParams.fromConfig(config.getConfig("op-rabbit.connection"))),
     name
   )
 
-  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue("errors", consumerName)
+  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueueName = "errors", sendErrors = config.getBoolean("error.queue"), consumerName = consumerName)
 
   /**
     * subscribe to queue/topic and execute callback on receipt of message
@@ -38,8 +39,14 @@ case class Queue[T <: Envelope](name: String, consumerName: Option[String] = Non
         (body(as[T]) & exchange) {
           (msg, ex) =>
             callback(msg, ex) match {
+              // Success
               case f: Future[Any] => ack(f)
-              case _ => ack
+              // Possible failure. Really should not happen
+              case _ => {
+                logger.error(s"Message appears to have completed without returning value. Investigate logs of consumer handling queue $name for possible reason.")
+                // Delete message from queue and flag as failed
+                nack()
+              }
             }
         }
       }
