@@ -2,13 +2,32 @@ package io.mdcatapult.klein.queue
 
 import akka.actor._
 import com.spingo.op_rabbit.PlayJsonSupport._
-import com.spingo.op_rabbit.properties.MessageProperty
+import com.spingo.op_rabbit.properties.{DeliveryModePersistence, MessageProperty}
 import com.spingo.op_rabbit.{Queue => RQueue, RecoveryStrategy => OpRecoveryStrategy, _}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.Format
 
 import scala.concurrent.Future
+
+object Queue {
+
+  /**
+   * Ensure that the properties contains a DeliveryModePersistence(true). Remove any DeliveryModePersistence(false)
+   *
+   * @param properties
+   * @return
+   */
+  def ensureDeliveryModePersistence(properties: Seq[MessageProperty]): Seq[MessageProperty] = {
+    (properties.exists(property => property match {
+      case prop: DeliveryModePersistence => prop.persistent
+      case _ => false
+    }) match {
+      case true => properties
+      case false => properties :+ DeliveryModePersistence(true)
+    }).filterNot(_ == DeliveryModePersistence(false))
+  }
+}
 
 /**
   * Queue Abstraction
@@ -54,11 +73,12 @@ case class Queue[T <: Envelope](name: String, consumerName: Option[String] = Non
   }
 
   /**
-    * Send message directly to configured queue
+    * Send message directly to configured queue. Method ensures that properties always
+    * contains DeliveryModePersistence(true)
     *
     * @param envelope message to send
     */
-  def send(envelope: T, properties: Seq[MessageProperty] = Seq.empty): Unit =
-    rabbit ! Message.queue(envelope, name, properties)
+  def send(envelope: T, properties: Seq[MessageProperty] = Seq[MessageProperty](DeliveryModePersistence(true))): Unit =
+    rabbit ! Message.queue(envelope, name, Queue.ensureDeliveryModePersistence(properties))
 
 }
