@@ -10,29 +10,10 @@ import play.api.libs.json.Format
 
 import scala.concurrent.Future
 
-object Queue {
-
-  /**
-   * Ensure that the properties contains a DeliveryModePersistence(true). Remove any DeliveryModePersistence(false)
-   *
-   * @param properties
-   * @return
-   */
-  def ensureDeliveryModePersistence(properties: Seq[MessageProperty]): Seq[MessageProperty] = {
-    (properties.exists(property => property match {
-      case prop: DeliveryModePersistence => prop.persistent
-      case _ => false
-    }) match {
-      case true => properties
-      case false => properties :+ DeliveryModePersistence(true)
-    }).filterNot(_ == DeliveryModePersistence(false))
-  }
-}
-
 /**
   * Queue Abstraction
   */
-case class Queue[T <: Envelope](name: String, consumerName: Option[String] = None, topics: Option[String] = None)
+case class Queue[T <: Envelope](name: String, consumerName: Option[String] = None, topics: Option[String] = None, persistent: Boolean = true)
                                (implicit actorSystem: ActorSystem, config: Config, formatter: Format[T])
   extends Subscribable with Sendable[T] with LazyLogging {
 
@@ -73,12 +54,21 @@ case class Queue[T <: Envelope](name: String, consumerName: Option[String] = Non
   }
 
   /**
-    * Send message directly to configured queue. Method ensures that properties always
-    * contains DeliveryModePersistence(true)
+    * Send message directly to configured queue. If the queue is set the persist messages
+    * then add header to persist them DeliveryModePersistence(true) otherwise add header
+    * DeliveryModePersistence(false). Note that op-rabbit adds DeliveryModePersistence(true)
+    * header by default but we are adding it here to ensure any future changes don't come as
+    * a surprise.
     *
     * @param envelope message to send
     */
-  def send(envelope: T, properties: Seq[MessageProperty] = Seq[MessageProperty](DeliveryModePersistence(true))): Unit =
-    rabbit ! Message.queue(envelope, name, Queue.ensureDeliveryModePersistence(properties))
+  def send(envelope: T, properties: Seq[MessageProperty] = Seq[MessageProperty]()): Unit = {
+    val persistedProperties = if (persistent){
+      properties :+ DeliveryModePersistence(true)
+    } else {
+      properties :+ DeliveryModePersistence(false)
+    }
+    rabbit ! Message.queue(envelope, name, persistedProperties)
+  }
 
 }
