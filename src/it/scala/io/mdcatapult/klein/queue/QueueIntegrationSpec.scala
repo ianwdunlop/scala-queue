@@ -41,10 +41,10 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
 
     // Use the java rabbit libs. Makes getting the message properties much simpler
     val factory = new ConnectionFactory
-    factory.setHost("localhost")
-    factory.setUsername("doclib")
-    factory.setPassword("doclib")
-    factory.setVirtualHost("doclib")
+    factory.setHost(config.getStringList("op-rabbit.connection.hosts").get(0))
+    factory.setUsername(config.getString("op-rabbit.connection.username"))
+    factory.setPassword(config.getString("op-rabbit.connection.password"))
+    factory.setVirtualHost(config.getString("op-rabbit.connection.virtual-host"))
     val connection = factory.newConnection
     val channel = connection.createChannel
 
