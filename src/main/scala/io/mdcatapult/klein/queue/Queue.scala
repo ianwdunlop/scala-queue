@@ -2,7 +2,7 @@ package io.mdcatapult.klein.queue
 
 import akka.actor._
 import com.spingo.op_rabbit.PlayJsonSupport._
-import com.spingo.op_rabbit.properties.MessageProperty
+import com.spingo.op_rabbit.properties.{DeliveryModePersistence, MessageProperty}
 import com.spingo.op_rabbit.{Queue => RQueue, RecoveryStrategy => OpRecoveryStrategy, _}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
@@ -13,7 +13,7 @@ import scala.concurrent.Future
 /**
   * Queue Abstraction
   */
-case class Queue[T <: Envelope](name: String, consumerName: Option[String] = None, topics: Option[String] = None)
+case class Queue[T <: Envelope](name: String, consumerName: Option[String] = None, topics: Option[String] = None, persistent: Boolean = true)
                                (implicit actorSystem: ActorSystem, config: Config, formatter: Format[T])
   extends Subscribable with Sendable[T] with LazyLogging {
 
@@ -54,11 +54,21 @@ case class Queue[T <: Envelope](name: String, consumerName: Option[String] = Non
   }
 
   /**
-    * Send message directly to configured queue
+    * Send message directly to configured queue. If the queue is set the persist messages
+    * then add header to persist them DeliveryModePersistence(true) otherwise add header
+    * DeliveryModePersistence(false). Note that op-rabbit adds DeliveryModePersistence(true)
+    * header by default but we are adding it here to ensure any future changes don't come as
+    * a surprise.
     *
     * @param envelope message to send
     */
-  def send(envelope: T, properties: Seq[MessageProperty] = Seq.empty): Unit =
-    rabbit ! Message.queue(envelope, name, properties)
+  def send(envelope: T, properties: Seq[MessageProperty] = Seq[MessageProperty]()): Unit = {
+    val persistedProperties = if (persistent){
+      properties :+ DeliveryModePersistence(true)
+    } else {
+      properties :+ DeliveryModePersistence(false)
+    }
+    rabbit ! Message.queue(envelope, name, persistedProperties)
+  }
 
 }
