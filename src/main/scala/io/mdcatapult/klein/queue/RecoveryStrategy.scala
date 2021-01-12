@@ -86,7 +86,7 @@ object RecoveryStrategy extends LazyLogging {
                   )
                 )
               }
-              case _ => nack()
+              case None => nack()
             }
           }
       }

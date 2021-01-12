@@ -224,7 +224,7 @@ akka.loggers = ["akka.testkit.TestEventListener"]
           eventually(Timeout(Span(20, Seconds))){
             errorQueue match {
               case Some(_) => errorCounter.get() should equal(10)
-              case _ => errorCounter.get() should equal(0)
+              case None => errorCounter.get() should equal(0)
             }
           }
         }
