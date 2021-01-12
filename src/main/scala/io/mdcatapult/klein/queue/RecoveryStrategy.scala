@@ -23,8 +23,7 @@ object RecoveryStrategy extends LazyLogging {
   }
 
   def errorQueue(
-                  errorQueueName: String,
-                  sendErrors: Boolean = false,
+                  errorQueue: Option[String],
                   consumerName: Option[String] = None,
                   exchange: OpExchange[OpExchange.Direct.type] = OpExchange.default,
                   retryCount: Int = 3,
@@ -72,21 +71,22 @@ object RecoveryStrategy extends LazyLogging {
           body(Directives.as[String]) { message =>
             MDC.put("original-message", message)
             logger.error(s"Exhausted retries for queue $queueName", exception)
-            if (sendErrors) {
-              enqueue(
-                errorQueueName,
-                channel,
-                List(
-                  Header("x-consumer", Value(consumerName.getOrElse("undeclared"))),
-                  Header("x-queue", Value(queueName)),
-                  Header("x-datetime", Value(LocalDateTime.now().toString)),
-                  Header("x-exception", Value(exception.getClass.getCanonicalName)),
-                  Header("x-message", Value(exception.getMessage)),
-                  Header("x-stack-trace", Value(toStrings(exception).mkString("\n"))),
+            errorQueue match {
+              case Some(value) => {
+                enqueue(
+                  value,
+                  channel,
+                  List(
+                    Header("x-consumer", Value(consumerName.getOrElse("undeclared"))),
+                    Header("x-queue", Value(queueName)),
+                    Header("x-datetime", Value(LocalDateTime.now().toString)),
+                    Header("x-exception", Value(exception.getClass.getCanonicalName)),
+                    Header("x-message", Value(exception.getMessage)),
+                    Header("x-stack-trace", Value(toStrings(exception).mkString("\n"))),
+                  )
                 )
-              )
-            } else {
-              nack()
+              }
+              case _ => nack()
             }
           }
       }

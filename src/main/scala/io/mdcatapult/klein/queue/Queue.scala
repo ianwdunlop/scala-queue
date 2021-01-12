@@ -13,7 +13,12 @@ import scala.concurrent.Future
 /**
   * Queue Abstraction
   */
-case class Queue[T <: Envelope](name: String, consumerName: Option[String] = None, topics: Option[String] = None, persistent: Boolean = true)
+case class Queue[T <: Envelope](name: String,
+                                consumerName: Option[String] = None,
+                                topics: Option[String] = None,
+                                persistent: Boolean = true,
+                                errorQueue: Option[String] = None
+                               )
                                (implicit actorSystem: ActorSystem, config: Config, formatter: Format[T])
   extends Subscribable with Sendable[T] with LazyLogging {
 
@@ -24,7 +29,7 @@ case class Queue[T <: Envelope](name: String, consumerName: Option[String] = Non
     name
   )
 
-  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueueName = "errors", sendErrors = config.getBoolean("error.queue"), consumerName = consumerName)
+  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueue, consumerName = consumerName)
 
   /**
     * subscribe to queue/topic and execute callback on receipt of message
@@ -63,7 +68,7 @@ case class Queue[T <: Envelope](name: String, consumerName: Option[String] = Non
     * @param envelope message to send
     */
   def send(envelope: T, properties: Seq[MessageProperty] = Seq[MessageProperty]()): Unit = {
-    val persistedProperties = if (persistent){
+    val persistedProperties = if (persistent) {
       properties :+ DeliveryModePersistence(true)
     } else {
       properties :+ DeliveryModePersistence(false)
