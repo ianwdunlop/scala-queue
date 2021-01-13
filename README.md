@@ -10,11 +10,12 @@ optionally sent to the error queue for handling by the Errors Consumer.
 ## Persistent messages
 Messages sent to a `Queue` are always persisted by adding a `DeliveryModePersistence(true)` property.
 
-## Config
-If you want errors to be sent to the errors queue after retries then set the following in your application.conf. The default is false.
-```
-error {
-  queue = true
-}
+## Error Queue Recovery Strategy
+Pass an `errorQueue = Option("error-queue-name")` into a `Queue` to publish exception info to the error queue after 3 retries.
+
+## Testing
+```bash
+docker-compose up -d
+RABBITMQ_HOST=localhost sbt clean test it:test
 ```
 
