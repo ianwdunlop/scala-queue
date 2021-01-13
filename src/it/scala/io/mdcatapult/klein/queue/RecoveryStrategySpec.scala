@@ -172,6 +172,7 @@ akka.loggers = ["akka.testkit.TestEventListener"]
       *
       * @param retryCount defines the number of retries that the recovery strategy should attempt
       * @param messagesPerRequest the number of messages that should be sent by each request, namely 1 per retry + 1 to the error queue
+      * @param errorQueue optional error queue name
       * @return unimportant as the key testing OneForOneStrategy happens within its constructor, but if needed calls could be made to it to help diagnose a testing issue
       */
     def recoveryStrategyWithRetry(retryCount: Int, messagesPerRequest: Int, errorQueue: Option[String]): RedeliveryFixtures = {

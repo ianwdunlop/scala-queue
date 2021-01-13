@@ -72,9 +72,9 @@ object RecoveryStrategy extends LazyLogging {
             MDC.put("original-message", message)
             logger.error(s"Exhausted retries for queue $queueName", exception)
             errorQueue match {
-              case Some(value) => {
+              case Some(errorQueueName) => {
                 enqueue(
-                  value,
+                  errorQueueName,
                   channel,
                   List(
                     Header("x-consumer", Value(consumerName.getOrElse("undeclared"))),

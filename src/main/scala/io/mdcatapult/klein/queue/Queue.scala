@@ -17,8 +17,7 @@ case class Queue[T <: Envelope](name: String,
                                 consumerName: Option[String] = None,
                                 topics: Option[String] = None,
                                 persistent: Boolean = true,
-                                errorQueue: Option[String] = None
-                               )
+                                errorQueue: Option[String] = None)
                                (implicit actorSystem: ActorSystem, config: Config, formatter: Format[T])
   extends Subscribable with Sendable[T] with LazyLogging {
 
