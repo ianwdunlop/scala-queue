@@ -7,11 +7,15 @@ If a message fails it is retried a maximum of 3 times. For each retry the origin
 sent containing a header `x-retry` with the number of retries. After the final retry the message is nack'd and
 optionally sent to the error queue for handling by the Errors Consumer.
 
-## Config
-If you want errors to be sent to the errors queue after retries then set the following in your application.conf. The default is false.
-```
-error {
-  queue = true
-}
+## Persistent messages
+Messages sent to a `Queue` are always persisted by adding a `DeliveryModePersistence(true)` property.
+
+## Error Queue Recovery Strategy
+Pass an `errorQueue = Option("error-queue-name")` into a `Queue` to publish exception info to the error queue after 3 retries.
+
+## Testing
+```bash
+docker-compose up -d
+RABBITMQ_HOST=localhost sbt clean test it:test
 ```
 
