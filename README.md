@@ -16,6 +16,6 @@ Pass an `errorQueue = Option("error-queue-name")` into a `Queue` to publish exce
 ## Testing
 ```bash
 docker-compose up -d
-RABBITMQ_HOST=localhost sbt clean test it:test
+sbt clean test it:test
 ```
 
