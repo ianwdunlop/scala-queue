@@ -38,8 +38,8 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
    * @param queueName
    * @param consumerName
    */
-  def createQueueOnly(queueName: String, consumerName: Option[String], persist: Boolean): Queue[Message] = {
-    val queue = Queue[Message](queueName, consumerName, persistent = persist)
+  def createQueueOnly(queueName: String, consumerName: Option[String], persist: Boolean, exchangeName: Option[String] = None): Queue[Message] = {
+    val queue = Queue[Message](queueName, consumerName, persistent = persist, exchange = exchangeName)
     val subscription: SubscriptionRef = queue.subscribe((msg: Message, key: String) => {})
     Await.result(subscription.initialized, 5.seconds)
     subscription.close()
@@ -112,6 +112,23 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
     queue.send(Message("Persist me"))
 
     eventually (timeout(Span(5, Seconds))) {deliveryMode.get() should be >= 1 }
+  }
+
+  "An exchange" should "be created" in {
+    val queueName = "test-queue"
+    val testExchange = "test-exchange"
+    val queue = createQueueOnly(queueName, Some("test-consumer"), persist = false, exchangeName = Some(testExchange))
+    val channel = getRabbitChannel()
+
+    var foundExchange: String = ""
+    val cancelCallback: CancelCallback = _ => {}
+    // Rabbit callback. Checks for the exchange
+    val deliverCallback:DeliverCallback = (_: String, delivery: Delivery) => {
+      foundExchange = delivery.getEnvelope.getExchange
+    }
+    channel.basicConsume(queueName, deliverCallback, cancelCallback)
+    queue.send(Message("test message"))
+    eventually (timeout(Span(5, Seconds))) {foundExchange should equal(testExchange)}
   }
 
 }
