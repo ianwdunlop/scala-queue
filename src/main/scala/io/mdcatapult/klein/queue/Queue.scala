@@ -3,7 +3,7 @@ package io.mdcatapult.klein.queue
 import akka.actor._
 import com.spingo.op_rabbit.PlayJsonSupport._
 import com.spingo.op_rabbit.properties.{DeliveryModePersistence, MessageProperty}
-import com.spingo.op_rabbit.{Queue => RQueue, RecoveryStrategy => OpRecoveryStrategy, _}
+import com.spingo.op_rabbit.{Exchange => OpExchange, RecoveryStrategy => OpRecoveryStrategy, _}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.Format
@@ -17,12 +17,13 @@ case class Queue[T <: Envelope](name: String,
                                 consumerName: Option[String] = None,
                                 topics: Option[String] = None,
                                 persistent: Boolean = true,
-                                errorQueue: Option[String] = None)
+                                errorQueue: Option[String] = None,
+                                exchange: Option[String] = None)
                                (implicit actorSystem: ActorSystem, config: Config, formatter: Format[T])
   extends Subscribable with Sendable[T] with LazyLogging {
 
   import actorSystem.dispatcher
-
+  import Directives.{exchange => opExchange, _}
   val rabbit: ActorRef = actorSystem.actorOf(
     Props(classOf[Rabbit], ConnectionParams.fromConfig(config.getConfig("op-rabbit.connection"))),
     name
@@ -30,6 +31,7 @@ case class Queue[T <: Envelope](name: String,
 
   implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueue, consumerName = consumerName)
 
+  lazy val exchangeName: String = exchange.getOrElse(config.getString("op-rabbit.topic-exchange-name"))
   /**
     * subscribe to queue/topic and execute callback on receipt of message
     *
@@ -37,10 +39,11 @@ case class Queue[T <: Envelope](name: String,
     * @return SubscriptionRef
     */
   def subscribe(callback: (T, String) => Any, concurrent: Int = 1): SubscriptionRef = Subscription.run(rabbit) {
-    import Directives._
+    val queueExchange = OpExchange.direct(exchangeName, durable = true, autoDelete = false)
+    val queueBinding = Binding.direct(queue(name, durable = true, autoDelete = false), OpExchange.passive(queueExchange))
     channel(qos = concurrent) {
-      consume(RQueue.passive(topic(queue(name), List(topics.getOrElse(name))))) {
-        (body(as[T]) & exchange) {
+      consume(queueBinding) {
+        (body(as[T]) & opExchange) {
           (msg, ex) =>
             callback(msg, ex) match {
               // Success
@@ -72,7 +75,7 @@ case class Queue[T <: Envelope](name: String,
     } else {
       properties :+ DeliveryModePersistence(false)
     }
-    rabbit ! Message.queue(envelope, name, persistedProperties)
+    rabbit ! Message.exchange(envelope, exchangeName, name, persistedProperties)
   }
 
 }
