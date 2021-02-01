@@ -1,9 +1,10 @@
 package io.mdcatapult.klein.queue
 
 import akka.actor._
+import com.spingo.op_rabbit.Directives.queue
 import com.spingo.op_rabbit.PlayJsonSupport._
 import com.spingo.op_rabbit.properties.{DeliveryModePersistence, MessageProperty}
-import com.spingo.op_rabbit.{Queue => RQueue, RecoveryStrategy => OpRecoveryStrategy, _}
+import com.spingo.op_rabbit.{Exchange => OpExchange, RecoveryStrategy => OpRecoveryStrategy, _}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.Format
@@ -28,7 +29,9 @@ case class Queue[T <: Envelope](name: String,
     name
   )
 
-  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueue, consumerName = consumerName)
+  private val exchange = OpExchange.direct(config.getString("op-rabbit.topic-exchange-name"), durable = true, autoDelete = false)
+
+  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueue, consumerName = consumerName, exchange = exchange)
 
   /**
     * subscribe to queue/topic and execute callback on receipt of message
@@ -37,10 +40,11 @@ case class Queue[T <: Envelope](name: String,
     * @return SubscriptionRef
     */
   def subscribe(callback: (T, String) => Any, concurrent: Int = 1): SubscriptionRef = Subscription.run(rabbit) {
-    import Directives._
+    val binding = Binding.direct(queue(name, durable = true, autoDelete = false), OpExchange.passive(exchange))
+    import Directives.{exchange => opExchange, _}
     channel(qos = concurrent) {
-      consume(RQueue.passive(topic(queue(name), List(topics.getOrElse(name))))) {
-        (body(as[T]) & exchange) {
+      consume(binding) {
+        (body(as[T]) & opExchange) {
           (msg, ex) =>
             callback(msg, ex) match {
               // Success
