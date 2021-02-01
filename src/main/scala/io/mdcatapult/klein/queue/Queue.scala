@@ -29,10 +29,9 @@ case class Queue[T <: Envelope](name: String,
     name
   )
 
-  val exchangeName: String = exchange.getOrElse(config.getString("op-rabbit.topic-exchange-name"))
-  val queueExchange = OpExchange.direct(exchangeName, durable = true, autoDelete = false)
+  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueue, consumerName = consumerName)
 
-  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueue, consumerName = consumerName, exchange = queueExchange)
+  lazy val exchangeName: String = exchange.getOrElse(config.getString("op-rabbit.topic-exchange-name"))
   /**
     * subscribe to queue/topic and execute callback on receipt of message
     *
@@ -40,6 +39,7 @@ case class Queue[T <: Envelope](name: String,
     * @return SubscriptionRef
     */
   def subscribe(callback: (T, String) => Any, concurrent: Int = 1): SubscriptionRef = Subscription.run(rabbit) {
+    val queueExchange = OpExchange.direct(exchangeName, durable = true, autoDelete = false)
     val queueBinding = Binding.direct(queue(name, durable = true, autoDelete = false), OpExchange.passive(queueExchange))
     channel(qos = concurrent) {
       consume(queueBinding) {
