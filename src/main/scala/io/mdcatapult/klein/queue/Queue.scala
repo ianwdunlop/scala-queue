@@ -29,9 +29,21 @@ case class Queue[T <: Envelope](name: String,
     name
   )
 
-  private val exchange = OpExchange.direct(config.getString("op-rabbit.topic-exchange-name"), durable = true, autoDelete = false)
+  val exchange: String = config.getString("op-rabbit.topic-exchange-name")
+  private var strategy: OpRecoveryStrategy = _
+  private val binding: Binding = {
+    exchange match {
+      case "" =>
+        strategy = RecoveryStrategy.errorQueue(errorQueue, consumerName = consumerName)
+        Binding.direct(queue(name, durable = true, autoDelete = false), OpExchange.default)
+      case _ =>
+        val directExchange = OpExchange.direct(exchange, durable = true, autoDelete = false)
+        strategy = RecoveryStrategy.errorQueue(errorQueue, consumerName = consumerName, exchange = directExchange)
+        Binding.direct(queue(name, durable = true, autoDelete = false), OpExchange.passive(directExchange))
+    }
+  }
 
-  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueue, consumerName = consumerName, exchange = exchange)
+  implicit val recoveryStrategy: OpRecoveryStrategy = strategy
 
   /**
     * subscribe to queue/topic and execute callback on receipt of message
@@ -40,7 +52,6 @@ case class Queue[T <: Envelope](name: String,
     * @return SubscriptionRef
     */
   def subscribe(callback: (T, String) => Any, concurrent: Int = 1): SubscriptionRef = Subscription.run(rabbit) {
-    val binding = Binding.direct(queue(name, durable = true, autoDelete = false), OpExchange.passive(exchange))
     import Directives.{exchange => opExchange, _}
     channel(qos = concurrent) {
       consume(binding) {
