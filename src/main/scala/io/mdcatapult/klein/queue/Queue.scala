@@ -38,7 +38,7 @@ case class Queue[T <: Envelope](name: String,
   }
 
   private val binding = exchangeName match {
-    case "" => OpQueue.passive(topic(queue(name), List(topics.getOrElse(name))))
+    case "amq.topic" => OpQueue.passive(topic(queue(name), List(topics.getOrElse(name))))
     case _ => Binding.direct(queue(name, durable = true, autoDelete = false), OpExchange.passive(exchange))
   }
 
