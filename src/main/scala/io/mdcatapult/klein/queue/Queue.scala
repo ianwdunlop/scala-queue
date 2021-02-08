@@ -4,11 +4,11 @@ import akka.actor._
 import com.spingo.op_rabbit.Directives.queue
 import com.spingo.op_rabbit.PlayJsonSupport._
 import com.spingo.op_rabbit.properties.{DeliveryModePersistence, MessageProperty}
-import com.spingo.op_rabbit.{Exchange => OpExchange, RecoveryStrategy => OpRecoveryStrategy, _}
+import com.spingo.op_rabbit.{Queue => OpQueue, Exchange => OpExchange, RecoveryStrategy => OpRecoveryStrategy, _}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.Format
-
+import Directives.{exchange => opExchange, _}
 import scala.concurrent.Future
 
 /**
@@ -32,13 +32,17 @@ case class Queue[T <: Envelope](name: String,
   val exchangeName: String = config.getString("op-rabbit.topic-exchange-name")
   private val exchange: OpExchange[OpExchange.Direct.type] = {
     exchangeName match {
-      case "" => OpExchange.default
+      case "amq.topic" => OpExchange.default
       case name => OpExchange.direct(name, durable = true, autoDelete = false)
     }
   }
 
-  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueue, consumerName = consumerName, exchange = exchange)
+  private val binding = exchangeName match {
+    case "" => OpQueue.passive(topic(queue(name), List(topics.getOrElse(name))))
+    case _ => Binding.direct(queue(name, durable = true, autoDelete = false), OpExchange.passive(exchange))
+  }
 
+  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueue, consumerName = consumerName, exchange = exchange)
   /**
     * subscribe to queue/topic and execute callback on receipt of message
     *
@@ -46,8 +50,6 @@ case class Queue[T <: Envelope](name: String,
     * @return SubscriptionRef
     */
   def subscribe(callback: (T, String) => Any, concurrent: Int = 1): SubscriptionRef = Subscription.run(rabbit) {
-    val binding = Binding.direct(queue(name, durable = true, autoDelete = false), OpExchange.passive(exchange))
-    import Directives.{exchange => opExchange, _}
     channel(qos = concurrent) {
       consume(binding) {
         (body(as[T]) & opExchange) {
