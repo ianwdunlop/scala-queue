@@ -52,8 +52,8 @@ case class Queue[T <: Envelope](name: String,
   def subscribe(callback: T => Any, concurrent: Int = 1): SubscriptionRef = Subscription.run(rabbit) {
     channel(qos = concurrent) {
       consume(binding) {
-        (body(as[T]) & opExchange) {
-          (msg, ex) =>
+        body(as[T]) {
+          msg =>
             callback(msg) match {
               // Success
               case f: Future[Any] => ack(f)
