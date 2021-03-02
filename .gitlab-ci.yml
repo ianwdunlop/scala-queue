@@ -26,8 +26,6 @@ default:
 
 test:
   stage: test
-  tags:
-    - wopr
   variables:
     RABBITMQ_HOST: rabbitmq
     RABBITMQ_USERNAME: guest
@@ -43,8 +41,6 @@ test:
 
 publish-snapshot:
   stage: publish
-  tags:
-    - wopr
   script:
     - sbt +publish
   only:
@@ -55,8 +51,6 @@ publish-snapshot:
 
 release-master:
   stage: publish
-  tags:
-    - wopr
   script:
     - /scripts/release.sh -b -r develop
   only:
