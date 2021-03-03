@@ -8,7 +8,7 @@ import com.spingo.op_rabbit.{Queue => OpQueue, Exchange => OpExchange, RecoveryS
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.Format
-import Directives.{exchange => opExchange, _}
+import Directives._
 import scala.concurrent.Future
 
 /**
@@ -49,20 +49,19 @@ case class Queue[T <: Envelope](name: String,
     * @param callback Function
     * @return SubscriptionRef
     */
-  def subscribe(callback: (T, String) => Any, concurrent: Int = 1): SubscriptionRef = Subscription.run(rabbit) {
+  def subscribe(callback: T => Any, concurrent: Int = 1): SubscriptionRef = Subscription.run(rabbit) {
     channel(qos = concurrent) {
       consume(binding) {
-        (body(as[T]) & opExchange) {
-          (msg, ex) =>
-            callback(msg, ex) match {
+        body(as[T]) {
+          msg =>
+            callback(msg) match {
               // Success
               case f: Future[Any] => ack(f)
               // Possible failure. Really should not happen
-              case _ => {
+              case _ =>
                 logger.error(s"Message appears to have completed without returning value. Investigate logs of consumer handling queue $name for possible reason.")
                 // Delete message from queue and flag as failed
                 nack()
-              }
             }
         }
       }

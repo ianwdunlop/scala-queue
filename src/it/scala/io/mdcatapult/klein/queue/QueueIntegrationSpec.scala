@@ -40,7 +40,7 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
    */
   def createQueueOnly(queueName: String, consumerName: Option[String], persist: Boolean): Queue[Message] = {
     val queue = Queue[Message](queueName, consumerName, persistent = persist)
-    val subscription: SubscriptionRef = queue.subscribe((msg: Message, key: String) => {})
+    val subscription: SubscriptionRef = queue.subscribe((msg: Message)  => {})
     Await.result(subscription.initialized, 5.seconds)
     subscription.close()
     queue
