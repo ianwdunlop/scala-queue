@@ -38,7 +38,7 @@ lazy val root = (project in file("."))
       }
     },
     libraryDependencies ++= Seq(
-      "io.mdcatapult.klein" %% "util"                 % "1.2.2",
+      "io.mdcatapult.klein" %% "util"                 % "1.2.3",
 
       "org.scalatest" %% "scalatest"                  % "3.1.1" % "it,test",
       "com.github.pjfanning" %% "op-rabbit-core"                % opRabbitVersion,
