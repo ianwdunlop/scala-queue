@@ -33,7 +33,7 @@ lazy val root = (project in file("."))
       }
     },
     libraryDependencies ++= {
-      val kleinUtilVersion = "1.2.4-SNAPSHOT"
+      val kleinUtilVersion = "1.2.4"
 
       val opRabbitVersion = "2.6.4"
       val configVersion = "1.4.1"
