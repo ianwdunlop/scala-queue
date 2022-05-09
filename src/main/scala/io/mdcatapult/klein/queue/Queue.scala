@@ -1,89 +1,171 @@
 package io.mdcatapult.klein.queue
 
-import akka.actor._
-import com.spingo.op_rabbit.Directives.queue
-import com.spingo.op_rabbit.PlayJsonSupport._
-import com.spingo.op_rabbit.properties.{DeliveryModePersistence, MessageProperty}
-import com.spingo.op_rabbit.{Queue => OpQueue, Exchange => OpExchange, RecoveryStrategy => OpRecoveryStrategy, _}
+import akka.Done
+import akka.actor.ActorSystem
+import akka.stream.alpakka.amqp._
+import akka.stream.alpakka.amqp.scaladsl.{AmqpFlow, AmqpSink, AmqpSource, CommittableReadResult}
+import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.util.ByteString
+import com.rabbitmq.client.AMQP
 import com.typesafe.config.Config
-import com.typesafe.scalalogging.LazyLogging
-import play.api.libs.json.Format
-import Directives._
-import scala.concurrent.Future
 
-/**
-  * Queue Abstraction
-  */
-case class Queue[T <: Envelope](name: String,
-                                consumerName: Option[String] = None,
-                                topics: Option[String] = None,
-                                persistent: Boolean = true,
-                                errorQueue: Option[String] = None)
-                               (implicit actorSystem: ActorSystem, config: Config, formatter: Format[T])
-  extends Subscribable with Sendable[T] with LazyLogging {
+import java.util
+import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
+import scala.util.Try
 
-  import actorSystem.dispatcher
 
-  val rabbit: ActorRef = actorSystem.actorOf(
-    Props(classOf[Rabbit], ConnectionParams.fromConfig(config.getConfig("op-rabbit.connection"))),
-    name
-  )
+// These could be [T, U] but think we only need [HandlerResult] since we can't do anything with the PrefetchMsg because it is wrapped in
+// the CommitableReadResult. The raw CommitableReadResult
+// needs to get passed into the "businessLogic" ie the handle method and de-serialized on the handler side rather than the old
+// way of deserializing before sending to the handler.
+case class Queue[T](name: String,
+                                                    consumerName: Option[String] = None,
+                                                    topics: Option[String] = None,
+                                                    persistent: Boolean = true,
+                                                    errorQueueName: Option[String] = None)
+                                                   (implicit actorSystem: ActorSystem,
+                                                    config: Config,
+                                                    ex: ExecutionContext) {
 
-  val exchangeName: String = config.getString("op-rabbit.topic-exchange-name")
-  private val exchange: OpExchange[OpExchange.Direct.type] = {
-    exchangeName match {
-      case "amq.topic" => OpExchange.default
-      case name => OpExchange.direct(name, durable = true, autoDelete = false)
-    }
-  }
+  // the durable setting must match the existing queue, or an exception is thrown when using it
+  private val queueDeclaration = QueueDeclaration(name).withDurable(true) // withArguments method to specify exchange?
+  private val maxRetries = config.getInt("queue.max-retries")
 
-  private val binding = exchangeName match {
-    case "amq.topic" => OpQueue.passive(topic(queue(name), List(topics.getOrElse(name))))
-    case _ => Binding.direct(queue(name, durable = true, autoDelete = false), OpExchange.passive(exchange))
-  }
+  // get a load of connection params from the config
+  // TODO use exception handler for retries?
+  private val amqpDetailsConnectionProvider =
+  AmqpDetailsConnectionProvider(host = config.getString("queue.host"), port = 5672)
+    .withVirtualHost(config.getString("queue.virtual-host"))
+    .withHostsAndPorts(Seq((config.getString("queue.host"), config.getInt("queue.port"))))
+    .withCredentials(AmqpCredentials(config.getString("queue.username"), config.getString("queue.password")))
+    .withConnectionTimeout(config.getInt("queue.connection-timeout"))
 
-  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy.errorQueue(errorQueue, consumerName = consumerName, exchange = exchange)
+  // define a source using the connection provider, queue name and queue declaration
+  private val amqpSourceSettings =
+    NamedQueueSourceSettings(amqpDetailsConnectionProvider, name)
+      .withDeclaration(queueDeclaration)
+      .withAckRequired(true)
+
+
+  private val writeSettings = AmqpWriteSettings(amqpDetailsConnectionProvider)
+    .withRoutingKey(name)
+    .withDeclaration(queueDeclaration)
+    .withBufferSize(10)
+    .withConfirmationTimeout(200.millis)
+
+
+  val amqpFlow: Flow[WriteMessage, WriteResult, Future[Done]] = AmqpFlow.withConfirm(writeSettings)
+
+  val amqpSink: Sink[WriteMessage, Future[Done]] =
+    AmqpSink(
+      writeSettings
+    )
+
   /**
-    * subscribe to queue/topic and execute callback on receipt of message
-    *
-    * @param callback Function
-    * @return SubscriptionRef
-    */
-  def subscribe(callback: T => Any, concurrent: Int = 1): SubscriptionRef = Subscription.run(rabbit) {
-    channel(qos = concurrent) {
-      consume(binding) {
-        body(as[T]) {
-          msg =>
-            callback(msg) match {
-              // Success
-              case f: Future[Any] => ack(f)
-              // Possible failure. Really should not happen
-              case _ =>
-                logger.error(s"Message appears to have completed without returning value. Investigate logs of consumer handling queue $name for possible reason.")
-                // Delete message from queue and flag as failed
-                nack()
-            }
+   * Resend the message if the retries have not been exhausted by nacking the old one, incrementing
+   * the retry header on a copy of it and sending it again
+   *
+   * @param cm The message
+   * @return
+   */
+  def getRetries(cm: CommittableReadResult): Future[ReadResult] = {
+    val headers: util.Map[String, AnyRef] = cm.message.properties.getHeaders
+    val retriesFromHeader = Try {
+      val retryHeader = headers.get(RetryHeader)
+      retryHeader.toString.toInt
+    }
+    val numRetries = retriesFromHeader.map(retries => retries + 1).getOrElse(1)
+    println(s"Retries for ${cm.message.bytes.utf8String} is $numRetries")
+    if (numRetries > maxRetries) {
+      println(s"${cm.message.bytes.utf8String} has exceeded retries so nacking")
+      cm.nack(requeue = false).map(_ => cm.message)
+    }
+    else {
+      println(s"nacking ${cm.message.bytes.utf8String}")
+      for {
+        _ <- {
+          val header: Map[String, Object] = Map(RetryHeader -> Integer.valueOf(numRetries))
+          val jHeader = header.asJava
+
+          // overwrite the existing header
+          val amqpBasicProps: AMQP.BasicProperties =
+            cm.message.properties.builder().headers(jHeader).build()
+
+          // send a new message, TODO can we reliably call .get on the try below?
+          val sendResult: Future[Done] = send(Try(cm.message.bytes.utf8String).get, Some(amqpBasicProps))
+          sendResult
         }
-      }
+        nackRes <- {
+          cm.nack(requeue = false).map(_ => cm.message)
+        }
+      } yield nackRes
     }
   }
 
   /**
-    * Send message directly to configured queue. If the queue is set the persist messages
-    * then add header to persist them DeliveryModePersistence(true) otherwise add header
-    * DeliveryModePersistence(false). Note that op-rabbit adds DeliveryModePersistence(true)
-    * header by default but we are adding it here to ensure any future changes don't come as
-    * a surprise.
-    *
-    * @param envelope message to send
-    */
-  def send(envelope: T, properties: Seq[MessageProperty] = Seq[MessageProperty]()): Unit = {
-    val persistedProperties = if (persistent) {
-      properties :+ DeliveryModePersistence(true)
-    } else {
-      properties :+ DeliveryModePersistence(false)
+   * Subscribe runs the flow between the source rabbit queue and the sink. In between it passes any
+   * messages to the businessLogic which returns a future containing the original message and a true/fail to indicate success
+   * or failure
+   *
+   * @param businessLogic
+   * @param concurrent
+   * @return
+   */
+  def subscribe[T](businessLogic: CommittableReadResult => Future[(CommittableReadResult, Option[T])],
+                               concurrent: Int = 1)
+  : Future[Seq[ReadResult]] = AmqpSource.committableSource(
+    settings = amqpSourceSettings,
+    bufferSize = concurrent
+  )
+    .mapAsync(1)(
+      // Success or fail?
+      msg => businessLogic(msg)
+    )
+    // check case for success/fail and ack nack
+    .mapAsync(1) {
+      case
+        // hr is prefetch result. Not sure what we do with it
+        (cm, Some(hr)) => {
+        println(s"${cm.message.bytes.utf8String} is successful. Acking")
+        cm.ack().map(_ => cm.message)
+      }
+      case
+        (cm, Some(e: Exception)) => getRetries(cm)
     }
-    rabbit ! Message.queue(envelope, name, persistedProperties)
+    .runWith(Sink.seq)
+
+  def send(envelope: String, properties: Option[AMQP.BasicProperties] = None): Future[Done] = {
+    val result: Future[Done] = Source.single(envelope)
+      .map(
+        {
+          message => {
+            val writeMessage = WriteMessage(ByteString(message))
+            writeMessage.withProperties(persistMessages(properties))
+          }
+        }
+      )
+      .runWith(amqpSink)
+    println(s"sent $envelope")
+    result
   }
 
+  /**
+   * Check if messages are to be persisted and add delivery mode property
+   * @param properties
+   * @return
+   */
+  private def persistMessages(properties: Option[AMQP.BasicProperties]) = {
+    val persistedProps = if (persistent) {
+      properties.getOrElse(AMQP.BasicProperties).builder().deliveryMode(2).build()
+    } else {
+      properties.getOrElse(AMQP.BasicProperties).builder().deliveryMode(1).build()
+    }
+    persistedProps
+  }
+}
+
+object Queue {
+  val RetryHeader = "x-retry"
 }
