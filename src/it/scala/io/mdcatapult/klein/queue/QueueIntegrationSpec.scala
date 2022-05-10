@@ -1,6 +1,7 @@
 package io.mdcatapult.klein.queue
 
 import akka.actor._
+import akka.stream.alpakka.amqp.scaladsl.CommittableReadResult
 import akka.testkit.{ImplicitSender, TestKit}
 import com.rabbitmq.client.{CancelCallback, Channel, ConnectionFactory, DeliverCallback, Delivery}
 import monix.execution.atomic.AtomicInt
@@ -12,9 +13,11 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{Format, Json}
 import com.spingo.op_rabbit.SubscriptionRef
+import org.json4s.DefaultFormats
 
 import scala.concurrent.duration._
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
 
 object Message {
   implicit val msgFormatter: Format[Message] = Json.format[Message]
@@ -38,11 +41,18 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
    * @param queueName
    * @param consumerName
    */
-  def createQueueOnly(queueName: String, consumerName: Option[String], persist: Boolean): Queue[Message] = {
-    val queue = Queue[Message](queueName, consumerName, persistent = persist)
-    val subscription: SubscriptionRef = queue.subscribe((msg: Message)  => {})
-    Await.result(subscription.initialized, 5.seconds)
-    subscription.close()
+  def createQueueOnly(queueName: String, consumerName: Option[String], persist: Boolean): Queue[Message, String] = {
+    val queue = Queue[Message, String](queueName, consumerName, persistent = persist)
+    val businessLogic: CommittableReadResult => Future[(CommittableReadResult, Option[Message])] = { committableReadResult =>
+
+      implicit val format = DefaultFormats // implicit format is needed to read JSON in to the person case class
+      //      val callback: Animal => Future[Unit] = animal => Future(throw new Exception(s"this animal is poorly")) // ${animal.kind}"))
+      // randomize the true/false response
+      // Try do some crazy stuff
+      val msg = Message((math.random < 0.5).toString)
+      Future((committableReadResult, Some(msg)))
+    }
+    queue.subscribe(businessLogic)
     queue
   }
 
@@ -54,10 +64,10 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
   def getRabbitChannel(): Channel = {
     // Use the java rabbit libs. Makes getting the message properties much simpler
     val factory = new ConnectionFactory
-    factory.setHost(config.getStringList("op-rabbit.connection.hosts").get(0))
-    factory.setUsername(config.getString("op-rabbit.connection.username"))
-    factory.setPassword(config.getString("op-rabbit.connection.password"))
-    factory.setVirtualHost(config.getString("op-rabbit.connection.virtual-host"))
+    factory.setHost(config.getStringList("queue.host").get(0))
+    factory.setUsername(config.getString("queue.username"))
+    factory.setPassword(config.getString("queue.password"))
+    factory.setVirtualHost(config.getString("queue.virtual-host"))
     val connection = factory.newConnection
     connection.createChannel
   }

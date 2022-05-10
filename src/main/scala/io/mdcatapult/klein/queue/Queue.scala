@@ -8,6 +8,7 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.ByteString
 import com.rabbitmq.client.AMQP
 import com.typesafe.config.Config
+import io.mdcatapult.klein.queue.Queue.RetryHeader
 
 import java.util
 import scala.concurrent.duration._
@@ -20,7 +21,9 @@ import scala.util.Try
 // the CommitableReadResult. The raw CommitableReadResult
 // needs to get passed into the "businessLogic" ie the handle method and de-serialized on the handler side rather than the old
 // way of deserializing before sending to the handler.
-case class Queue[T](name: String,
+// M = message you send to the queue through send(envelope: M)
+// T is the response through subscribe
+case class Queue[M <: Envelope, T](name: String,
                                                     consumerName: Option[String] = None,
                                                     topics: Option[String] = None,
                                                     persistent: Boolean = true,
@@ -94,7 +97,7 @@ case class Queue[T](name: String,
             cm.message.properties.builder().headers(jHeader).build()
 
           // send a new message, TODO can we reliably call .get on the try below?
-          val sendResult: Future[Done] = send(Try(cm.message.bytes.utf8String).get, Some(amqpBasicProps))
+          val sendResult: Future[Done] = send(Try(cm.message.envelope.asInstanceOf[M]).get, Some(amqpBasicProps))
           sendResult
         }
         nackRes <- {
@@ -113,7 +116,7 @@ case class Queue[T](name: String,
    * @param concurrent
    * @return
    */
-  def subscribe[T](businessLogic: CommittableReadResult => Future[(CommittableReadResult, Option[T])],
+  def subscribe(businessLogic: CommittableReadResult => Future[(CommittableReadResult, Option[T])],
                                concurrent: Int = 1)
   : Future[Seq[ReadResult]] = AmqpSource.committableSource(
     settings = amqpSourceSettings,
@@ -136,12 +139,12 @@ case class Queue[T](name: String,
     }
     .runWith(Sink.seq)
 
-  def send(envelope: String, properties: Option[AMQP.BasicProperties] = None): Future[Done] = {
+  def send(envelope: M, properties: Option[AMQP.BasicProperties] = None): Future[Done] = {
     val result: Future[Done] = Source.single(envelope)
       .map(
         {
           message => {
-            val writeMessage = WriteMessage(ByteString(message))
+            val writeMessage = WriteMessage(ByteString(envelope.toString))
             writeMessage.withProperties(persistMessages(properties))
           }
         }
