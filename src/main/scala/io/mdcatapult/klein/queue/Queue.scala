@@ -160,10 +160,11 @@ case class Queue[M <: Envelope, T](name: String,
    * @return
    */
   private def persistMessages(properties: Option[AMQP.BasicProperties]) = {
+    // At the moment the properties have to be present
     val persistedProps = if (persistent) {
-      properties.getOrElse(AMQP.BasicProperties).builder().deliveryMode(2).build()
+      properties.get.builder().deliveryMode(2).build()
     } else {
-      properties.getOrElse(AMQP.BasicProperties).builder().deliveryMode(1).build()
+      properties.get.builder().deliveryMode(1).build()
     }
     persistedProps
   }
