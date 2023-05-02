@@ -1,7 +1,8 @@
 package io.mdcatapult.klein.queue
 
 import akka.Done
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.alpakka.amqp._
 import akka.stream.alpakka.amqp.scaladsl.{
   AmqpFlow,
@@ -9,14 +10,9 @@ import akka.stream.alpakka.amqp.scaladsl.{
   AmqpSource,
   CommittableReadResult
 }
-import akka.stream.scaladsl.{Flow, Sink, Source}
+
 import akka.util.ByteString
 import com.rabbitmq.client.AMQP
-import com.spingo.op_rabbit.{
-  ConnectionParams,
-  Exchange => OpExchange,
-  RecoveryStrategy => OpRecoveryStrategy
-}
 import com.typesafe.config.Config
 import io.mdcatapult.klein.queue.Queue.RetryHeader
 
@@ -38,32 +34,9 @@ case class Queue[M <: Envelope, T](
     topics: Option[String] = None,
     persistent: Boolean = true,
     errorQueueName: Option[String] = None
-)(implicit actorSystem: ActorSystem, config: Config, ex: ExecutionContext)
+)(implicit val materializer: Materializer, config: Config, ex: ExecutionContext)
     extends Subscribable
     with Sendable[M] {
-
-  val rabbit: ActorRef = actorSystem.actorOf(
-    Props(
-      classOf[Rabbit],
-      ConnectionParams.fromConfig(config.getConfig("op-rabbit.connection"))
-    ),
-    name
-  )
-
-  val exchangeName: String = config.getString("op-rabbit.topic-exchange-name")
-  private val exchange: OpExchange[OpExchange.Direct.type] = {
-    exchangeName match {
-      case "amq.topic" => OpExchange.default
-      case name => OpExchange.direct(name, durable = true, autoDelete = false)
-    }
-  }
-
-  implicit val recoveryStrategy: OpRecoveryStrategy = RecoveryStrategy
-    .errorQueue(
-      errorQueueName,
-      consumerName = consumerName,
-      exchange = exchange
-    )
 
   // the durable setting must match the existing queue, or an exception is thrown when using it
   private val queueDeclaration = QueueDeclaration(name).withDurable(
@@ -143,7 +116,7 @@ case class Queue[M <: Envelope, T](
             cm.message.properties.builder().headers(jHeader).build()
 
           // send a new message, TODO can we reliably call .get on the try below?
-          val sendResult: Future[Done] = _send(
+          val sendResult: Future[Done] = send(
             Try(cm.message.envelope.asInstanceOf[M]).get,
             Some(amqpBasicProps)
           )
@@ -191,7 +164,7 @@ case class Queue[M <: Envelope, T](
     }
     .runWith(Sink.seq)
 
-  private def _send(
+  def send(
       envelope: M,
       properties: Option[AMQP.BasicProperties]
   ): Future[Done] = {
@@ -208,13 +181,6 @@ case class Queue[M <: Envelope, T](
       .runWith(amqpSink)
     println(s"sent $envelope")
     result
-  }
-
-  def send(
-      envelop: M,
-      properties: Option[AMQP.BasicProperties] = None
-  ): Unit = {
-    _send(envelop, properties)
   }
 
   /** Check if messages are to be persisted and add delivery mode property
