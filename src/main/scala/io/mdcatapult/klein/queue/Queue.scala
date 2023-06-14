@@ -97,6 +97,8 @@ case class Queue[M <: Envelope, T](
     val numRetries = retriesFromHeader.map(retries => retries + 1).getOrElse(1)
     println(s"Retries for ${cm.message.bytes.utf8String} is $numRetries")
     if (numRetries > maxRetries) {
+      // nack it after retries exhausted. Could log it out as well. In previous versions
+      // we wrote out some Json about the failure but not sure we should
       println(s"${cm.message.bytes.utf8String} has exceeded retries so nacking")
       cm.nack(requeue = false).map(_ => cm.message)
     } else {
@@ -152,8 +154,8 @@ case class Queue[M <: Envelope, T](
     // check case for success/fail and ack nack
     .mapAsync(1) {
       case
-          // hr is prefetch result. Not sure what we do with it
-          (cm, Some(hr)) => {
+          // Also gets Some(result). Not sure what we want do with it
+          (cm, Some(_)) => {
         println(s"${cm.message.bytes.utf8String} is successful. Acking")
         cm.ack().map(_ => cm.message)
       }
