@@ -15,7 +15,7 @@ import java.util
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 // These could be [T, U] but think we only need [HandlerResult] since we can't do anything with the PrefetchMsg because it is wrapped in
 // the CommitableReadResult. The raw CommitableReadResult
@@ -88,7 +88,7 @@ case class Queue[M <: Envelope, T](
     *   The message
     * @return
     */
-  private def getRetries(cm: CommittableReadResult): Future[ReadResult] = {
+  private def getRetries(cm: CommittableReadResult, e: Throwable): Future[ReadResult] = {
     val headers: util.Map[String, AnyRef] = cm.message.properties.getHeaders
     val retriesFromHeader = Try {
       val retryHeader = headers.get(RetryHeader)
@@ -99,7 +99,7 @@ case class Queue[M <: Envelope, T](
     if (numRetries > maxRetries) {
       // nack it after retries exhausted. Could log it out as well. In previous versions
       // we wrote out some Json about the failure but not sure we should
-      println(s"${cm.message.bytes.utf8String} has exceeded retries so nacking")
+      println(s"${cm.message.bytes.utf8String} has exceeded retries so nacking without requeue. Exception was ${e.getMessage}")
       cm.nack(requeue = false).map(_ => cm.message)
     } else {
       println(s"nacking ${cm.message.bytes.utf8String}")
@@ -121,6 +121,7 @@ case class Queue[M <: Envelope, T](
           )
           sendResult
         }
+        // we've sent a new message with retry count in header so nack the old one. TODO any way we can add the retries to header and just nack it?
         nackRes <- {
           cm.nack(requeue = false).map(_ => cm.message)
         }
@@ -139,7 +140,7 @@ case class Queue[M <: Envelope, T](
     */
   def subscribe(
       businessLogic: CommittableReadResult => Future[
-        (CommittableReadResult, Option[T])
+        (CommittableReadResult, Try[T])
       ],
       concurrent: Int = 1
   ): Future[Seq[ReadResult]] = AmqpSource
@@ -154,12 +155,14 @@ case class Queue[M <: Envelope, T](
     // check case for success/fail and ack nack
     .mapAsync(1) {
       case
-          // Also gets Some(result). Not sure what we want do with it
-          (cm, Some(_)) => {
+          // Also gets Some(result) from the business logic. Not sure what we want do with it
+          (cm, Success(hr)) => {
         println(s"${cm.message.bytes.utf8String} is successful. Acking")
+        println(s"hr is: ${hr.toString}")
+        // if business logic failed then nack, otherwise ack
         cm.ack().map(_ => cm.message)
       }
-      case (cm, _) => getRetries(cm)
+      case (cm, Failure(e)) => getRetries(cm, e)
     }
     .runWith(Sink.seq)
 

@@ -14,6 +14,7 @@ import play.api.libs.json.{Format, Json}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
 object Message {
   implicit val msgFormatter: Format[Message] = Json.format[Message]
@@ -47,47 +48,24 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
     queue
   }
 
-  /**
-   * Use the java rabbit libs to create readResult rabbit connection.
-   * Makes getting the message properties much simpler
-   * @return
-   */
-  def getRabbitChannel(): Channel = {
-    // Use the java rabbit libs. Makes getting the message properties much simpler
-    val factory = new ConnectionFactory
-    factory.setHost(config.getString("queue.host"))
-    factory.setUsername(config.getString("queue.username"))
-    factory.setPassword(config.getString("queue.password"))
-    factory.setVirtualHost(config.getString("queue.virtual-host"))
-    val connection = factory.newConnection
-    connection.createChannel
-  }
+  "A message to a queue" can "fail" in {
 
-//  "Creating readResult queue with persist false" should "not persist messages" in {
-//
-//    // Note that we need to include readResult topic if we want the queue to be created
-//    val consumerName = Option(config.getString("op-rabbit.topic-exchange-name"))
-//    val queueName = "non-persistent-test-queue"
-//
-//    val queue = createQueueOnly(queueName, false, consumerName, false)
-//
-//    val channel = getRabbitChannel()
-//
-//    val deliveryMode: AtomicInt = AtomicInt(0)
-//    val cancelCallback: CancelCallback = _ => {
-//
-//    }
-//    // Rabbit callback. Checks for non persistence property
-//    val deliverCallback:DeliverCallback = (_: String, delivery: Delivery) => {
-//      if (delivery.getProperties.getDeliveryMode == 1) {
-//        deliveryMode.add(1)
-//      }
-//    }
-//    channel.basicConsume(queueName, deliverCallback, cancelCallback)
-//    queue.send(Message("Don't persist me"))
-//
-//    eventually (timeout(Span(5, Seconds))) {deliveryMode.get() should be >= 1 }
-//  }
+    val queueName = "failure-queue"
+
+    val queue = createQueueOnly(queueName, true, None, true)
+    val businessLogic: CommittableReadResult => Future[(CommittableReadResult, Try[Message])] = { committableReadResult =>
+      Future((committableReadResult, Failure(new Exception("boom"))))
+    }
+    queue.subscribe(businessLogic)
+
+    // give the queue a second or 2 to sort itself out
+    Thread.sleep(3000)
+    val res = queue.send(Message("Fail me"))
+    whenReady(res) {
+      r => println(s"result is ${r.toString}")
+    }
+
+  }
 
   "A queue" should "can be subscribed to and read from" in {
 
@@ -96,9 +74,9 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
     val queueName = "persistent-test-queue"
 
     val queue = createQueueOnly(queueName, true, consumerName, true)
-    val businessLogic: CommittableReadResult => Future[(CommittableReadResult, Option[Message])] = { committableReadResult =>
+    val businessLogic: CommittableReadResult => Future[(CommittableReadResult, Try[Message])] = { committableReadResult =>
       val msg = Message((math.random < 0.5).toString)
-      Future((committableReadResult, Some(msg)))
+      Future((committableReadResult, Success(msg)))
     }
     queue.subscribe(businessLogic)
 
@@ -111,5 +89,3 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
 
   }
 }
-
-
