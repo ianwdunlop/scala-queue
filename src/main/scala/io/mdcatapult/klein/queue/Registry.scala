@@ -12,11 +12,12 @@ class Registry[M <: Envelope, T]()(implicit
     ex: ExecutionContext
 ) {
 
-  var register: mutable.Map[String, Sendable[M]] =
+  private val register: mutable.Map[String, Sendable[M]] =
     mutable.Map[String, Sendable[M]]()
 
   def get(
       name: String,
+      durable: Boolean = true,
       consumerName: Option[String] = None,
       topics: Option[String] = None,
       persistent: Boolean = true,
@@ -25,6 +26,7 @@ class Registry[M <: Envelope, T]()(implicit
     if (!register.contains(name))
       register(name) = Queue[M, T](
         name,
+        durable,
         consumerName,
         topics,
         persistent,

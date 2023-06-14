@@ -2,17 +2,12 @@ package io.mdcatapult.klein.queue
 
 import akka.Done
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.alpakka.amqp._
-import akka.stream.alpakka.amqp.scaladsl.{
-  AmqpFlow,
-  AmqpSink,
-  AmqpSource,
-  CommittableReadResult
-}
-
+import akka.stream.alpakka.amqp.scaladsl.{AmqpSink, AmqpSource, CommittableReadResult}
+import akka.stream.scaladsl.{Sink, Source}
 import akka.util.ByteString
 import com.rabbitmq.client.AMQP
+import com.rabbitmq.client.AMQP.BasicProperties
 import com.typesafe.config.Config
 import io.mdcatapult.klein.queue.Queue.RetryHeader
 
@@ -30,6 +25,7 @@ import scala.util.Try
 // T is the response through subscribe
 case class Queue[M <: Envelope, T](
     name: String,
+    durable: Boolean = true,
     consumerName: Option[String] = None,
     topics: Option[String] = None,
     persistent: Boolean = true,
@@ -39,9 +35,9 @@ case class Queue[M <: Envelope, T](
     with Sendable[M] {
 
   // the durable setting must match the existing queue, or an exception is thrown when using it
-  private val queueDeclaration = QueueDeclaration(name).withDurable(
-    true
-  ) // withArguments method to specify exchange?
+//  private val queueDeclaration = QueueDeclaration(name).withDurable(
+//    durable
+//  ) // withArguments method to specify exchange?
   private val maxRetries = config.getInt("queue.max-retries")
 
   // get a load of connection params from the config
@@ -61,6 +57,7 @@ case class Queue[M <: Envelope, T](
           config.getString("queue.password")
         )
       )
+      // Assuming milliseconds - API docs don't say
       .withConnectionTimeout(config.getInt("queue.connection-timeout"))
 
   // define a source using the connection provider, queue name and queue declaration
@@ -75,8 +72,8 @@ case class Queue[M <: Envelope, T](
     .withBufferSize(10)
     .withConfirmationTimeout(200.millis)
 
-  val amqpFlow: Flow[WriteMessage, WriteResult, Future[Done]] =
-    AmqpFlow.withConfirm(writeSettings)
+//  val amqpFlow: Flow[WriteMessage, WriteResult, Future[Done]] =
+//    AmqpFlow.withConfirm(writeSettings)
 
   val amqpSink: Sink[WriteMessage, Future[Done]] =
     AmqpSink(
@@ -91,7 +88,7 @@ case class Queue[M <: Envelope, T](
     *   The message
     * @return
     */
-  def getRetries(cm: CommittableReadResult): Future[ReadResult] = {
+  private def getRetries(cm: CommittableReadResult): Future[ReadResult] = {
     val headers: util.Map[String, AnyRef] = cm.message.properties.getHeaders
     val retriesFromHeader = Try {
       val retryHeader = headers.get(RetryHeader)
@@ -173,7 +170,7 @@ case class Queue[M <: Envelope, T](
       .map(
         { message =>
           {
-            val writeMessage = WriteMessage(ByteString(envelope.toString))
+            val writeMessage = WriteMessage(ByteString(envelope.toJsonString()))
             writeMessage.withProperties(persistMessages(properties))
           }
         }
@@ -187,12 +184,13 @@ case class Queue[M <: Envelope, T](
     * @param properties
     * @return
     */
-  private def persistMessages(properties: Option[AMQP.BasicProperties]) = {
-    // At the moment the properties have to be present
+   override def persistMessages(properties: Option[AMQP.BasicProperties]) = {
+    // At the moment create the properties rather than use what is passed in
+     val properties = new BasicProperties.Builder()
     val persistedProps = if (persistent) {
-      properties.get.builder().deliveryMode(2).build()
+      properties.deliveryMode(2).build()
     } else {
-      properties.get.builder().deliveryMode(1).build()
+      properties.deliveryMode(1).build()
     }
     persistedProps
   }
