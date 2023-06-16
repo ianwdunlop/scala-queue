@@ -7,8 +7,8 @@ import akka.stream.alpakka.amqp.scaladsl.{AmqpSink, AmqpSource, CommittableReadR
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.ByteString
 import com.rabbitmq.client.AMQP
-import com.rabbitmq.client.AMQP.BasicProperties
 import com.typesafe.config.Config
+import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.klein.queue.Queue.RetryHeader
 
 import java.util
@@ -17,10 +17,9 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
-// Create a Queue using params from config that receives messages M and returns T as part of the "business logic" response.
-// M = message you send to the queue through send
-// T is part of the response through subscribe
-
+object Queue {
+  val RetryHeader = "x-retry"
+}
 /**
  * Create a Queue using params from config that receives messages M and returns T as part of the "business logic" response.
  * M = message you send to the queue through send
@@ -37,7 +36,7 @@ import scala.util.{Failure, Success, Try}
  * @tparam M Message type that the queue receives
  * @tparam T Response type from the "business logic" provided via subscribe
  */
-case class Queue[M <: Envelope, T](
+case class Queue[M <: Envelope, T] (
     name: String,
     durable: Boolean = true,
     consumerName: Option[String] = None,
@@ -46,7 +45,8 @@ case class Queue[M <: Envelope, T](
     errorQueueName: Option[String] = None
 )(implicit val materializer: Materializer, config: Config, ex: ExecutionContext)
     extends Subscribable
-    with Sendable[M] {
+      with LazyLogging
+      with Sendable[M] {
 
   private val maxRetries = config.getInt("queue.max-retries")
 
@@ -106,14 +106,14 @@ case class Queue[M <: Envelope, T](
       case Success(retries) => retries
       case Failure(_) => 0
     }
-    println(s"Retries for ${cm.message.bytes.utf8String} is $numRetries")
+
+    logger.info(s"Retries for ${cm.message.bytes.utf8String} is $numRetries")
     if (numRetries > maxRetries) {
       // nack it after retries exhausted. Could log it out as well. In previous versions
       // we wrote out some Json to the db about the failure but not sure we should
-      println(s"${cm.message.bytes.utf8String} has exceeded retries so nacking without requeue. Exception was ${e.getMessage}")
+      logger.error(s"${cm.message.bytes.utf8String} has exceeded retries so nacking without requeue. Exception was ${e.getMessage}")
       cm.nack(requeue = false).map(_ => cm.message)
     } else {
-      println(s"nacking ${cm.message.bytes.utf8String}")
       for {
         _ <- {
           val header: Map[String, Object] = Map(
@@ -126,15 +126,13 @@ case class Queue[M <: Envelope, T](
             cm.message.properties.builder().headers(jHeader).build()
 
           // send a new message
-          println("Going to send a retry")
-          val msg = ByteString(cm.message.bytes.utf8String + "yo yo yo")
+          val msg = ByteString(cm.message.bytes.utf8String)
           val sendResult: Future[Done] = sendRetry(msg, Some(amqpBasicProps))
           sendResult
         }
         // we've sent a new message with retry count in header so nack the old one.
         // TODO any way we can add the retries to header and just nack it?
         nackRes <- {
-          // TODO use exception handler for retries?
           cm.nack(requeue = false).map(_ => cm.message)
         }
       } yield nackRes
@@ -169,7 +167,7 @@ case class Queue[M <: Envelope, T](
       case
           // Also gets result from the business logic. Not sure what we want do with it
           (cm, Success(_)) => {
-        println(s"${cm.message.bytes.utf8String} is successful. Acking")
+        logger.info(s"${cm.message.bytes.utf8String} was successful.")
         // if business logic failed then nack, otherwise ack
         cm.ack().map(_ => cm.message)
       }
@@ -192,10 +190,15 @@ case class Queue[M <: Envelope, T](
         }
       )
       .runWith(amqpSink)
-    println(s"sent $envelope")
     result
   }
 
+  /**
+   * Send a message based on a previously failed one
+   * @param message
+   * @param properties
+   * @return
+   */
   def sendRetry(
             message: ByteString,
             properties: Option[AMQP.BasicProperties]
@@ -210,29 +213,24 @@ case class Queue[M <: Envelope, T](
         }
       )
       .runWith(amqpSink)
-    println(s"sent retry ${message.utf8String}")
     result
   }
 
-  /** Check if messages are to be persisted and add delivery mode property
-    * @param properties
-    * @return
-    */
-   override def persistMessages(properties: Option[AMQP.BasicProperties]) = {
-    // At the moment create the properties rather than use what is passed in
-     val basicProperties = properties match {
-       case None => new BasicProperties.Builder().build()
-       case Some(props) => props
-     }
-     val persistedProps = if (persistent) {
-       basicProperties.builder().deliveryMode(2).build()
-    } else {
-       basicProperties.builder().deliveryMode(1).build()
-    }
-    persistedProps
-  }
-}
-
-object Queue {
-  val RetryHeader = "x-retry"
+//  /** Check if messages are to be persisted and add delivery mode property
+//   *
+//   * @param properties
+//   * @return
+//   */
+//  override def persistMessages(properties: Option[AMQP.BasicProperties]): BasicProperties = {
+//    val basicProperties = properties match {
+//      case None => new BasicProperties.Builder().build()
+//      case Some(props) => props
+//    }
+//    val persistedProps = if (persistent) {
+//      basicProperties.builder().deliveryMode(2).build()
+//    } else {
+//      basicProperties.builder().deliveryMode(1).build()
+//    }
+//    persistedProps
+//  }
 }

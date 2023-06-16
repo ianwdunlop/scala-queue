@@ -9,11 +9,13 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.{Seconds, Span}
 import play.api.libs.json.{Format, Json}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
+import scala.collection.mutable.Map
 
 object Message {
   implicit val msgFormatter: Format[Message] = Json.format[Message]
@@ -47,63 +49,61 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
     queue
   }
 
-  "A message to a queue" can "fail" in {
+  "A message to a queue" can "fail and is then retried" in {
 
     val queueName = "failure-queue"
     val failure_Count: AtomicInt = AtomicInt(0)
-
+    // keep track of failures per message
+    val failureCount: Map[String, Int] = scala.collection.mutable.Map[String, Int]("{\"message\":\"Fail me\"}" -> 0, "{\"message\":\"Fail me 2\"}" -> 0, "{\"message\":\"Fail me 3\"}" -> 0)
     val queue = createQueueOnly(queueName, true, None, true)
     val businessLogic: CommittableReadResult => Future[(CommittableReadResult, Try[Message])] = { committableReadResult =>
       failure_Count.add(1)
+      failureCount(committableReadResult.message.bytes.utf8String) = failureCount(committableReadResult.message.bytes.utf8String) + 1
+      // fail the message and force a retry
       Future((committableReadResult, Failure(new Exception("boom"))))
     }
     queue.subscribe(businessLogic)
 
     // give the queue a second or 2 to sort itself out
     Thread.sleep(3000)
-    val res = queue.send(Message("Fail me"))
-    whenReady(res) {
-      r => println(s"result is ${r.toString}")
+    queue.send(Message("Fail me"))
+
+    queue.send(Message("Fail me 2"))
+
+    queue.send(Message("Fail me 3"))
+
+    eventually (timeout(Span(25, Seconds))) {
+      failureCount("{\"message\":\"Fail me\"}" ) should be >= 4
+      failure_Count.get() should be >= 12
     }
-//    while (failure_Count.get() <= 4) {
-//
-//    }
-    val res2  = queue.send(Message("Fail me 2"))
-    whenReady(res2) {
-      r => println(s"result 2 is ${r.toString}")
-    }
-    val res3 = queue.send(Message("Fail me 3"))
-    whenReady(res3) {
-      r => println(s"result 3 is ${r.toString}")
-    }
-    val startTime = System.currentTimeMillis(); //fetch starting time
-    while (false || (System.currentTimeMillis() - startTime) < 20000) {
-      // do something
-    }
-    print("And away....")
-//    eventually (timeout(Span(5, Seconds))) {failure_Count.get() should be >= 4 }
 
   }
 
-//  "A queue" should "can be subscribed to and read from" in {
-//
-//    // Note that we need to include readResult topic if we want the queue to be created
-//    val consumerName = Option(config.getString("op-rabbit.topic-exchange-name"))
-//    val queueName = "persistent-test-queue"
-//
-//    val queue = createQueueOnly(queueName, true, consumerName, true)
-//    val businessLogic: CommittableReadResult => Future[(CommittableReadResult, Try[Message])] = { committableReadResult =>
-//      val msg = Message((math.random < 0.5).toString)
-//      Future((committableReadResult, Success(msg)))
-//    }
-//    queue.subscribe(businessLogic)
-//
-//    // give the queue a second or 2 to sort itself out
-//    Thread.sleep(3000)
-//    val res = queue.send(Message("Persist me"))
-//    whenReady(res) {
-//      r => println(s"result is ${r.toString}")
-//    }
-//
-//  }
+  "A queue" should "can be subscribed to and read from" in {
+
+    // Note that we need to include readResult topic if we want the queue to be created
+    val consumerName = Option(config.getString("op-rabbit.topic-exchange-name"))
+    val queueName = "persistent-test-queue"
+    val count: AtomicInt = AtomicInt(0)
+
+    val queue = createQueueOnly(queueName, true, consumerName, true)
+    val businessLogic: CommittableReadResult => Future[(CommittableReadResult, Try[Message])] = { committableReadResult =>
+      val msg = Message((math.random < 0.5).toString)
+      count.add(1)
+      Future((committableReadResult, Success(msg)))
+    }
+    queue.subscribe(businessLogic)
+
+    // give the queue a second or 2 to sort itself out
+    Thread.sleep(3000)
+    val res = queue.send(Message("I am a message"))
+    whenReady(res) {
+      r => r.toString should be ("Done")
+    }
+    // should only be one trip through the business logic
+    eventually (timeout(Span(25, Seconds))) {
+      count.get() should be (1)
+    }
+
+  }
 }
