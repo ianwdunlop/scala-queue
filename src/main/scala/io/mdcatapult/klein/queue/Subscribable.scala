@@ -8,6 +8,4 @@ trait Subscribable {
   val queueDeclaration = QueueDeclaration(name).withDurable(
     durable
   )
-  // val rabbit: ActorRef
-  // implicit val recoveryStrategy: OpRecoveryStrategy
 }

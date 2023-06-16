@@ -17,12 +17,26 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
-// These could be [T, U] but think we only need [HandlerResult] since we can't do anything with the PrefetchMsg because it is wrapped in
-// the CommitableReadResult. The raw CommitableReadResult
-// needs to get passed into the "businessLogic" ie the handle method and de-serialized on the handler side rather than the old
-// way of deserializing before sending to the handler.
-// M = message you send to the queue through send(envelope: M)
-// T is the response through subscribe
+// Create a Queue using params from config that receives messages M and returns T as part of the "business logic" response.
+// M = message you send to the queue through send
+// T is part of the response through subscribe
+
+/**
+ * Create a Queue using params from config that receives messages M and returns T as part of the "business logic" response.
+ * M = message you send to the queue through send
+ * T is part of the response through subscribe
+ * @param name name of the queue
+ * @param durable should the queue be persisted if the message server restarts
+ * @param consumerName what service we expect to read the messages. This shoudl be used in log messages to make it clear what service sent a message that caused an error
+ * @param topics legacy. Currently not needed
+ * @param persistent should the message be persisted in case the server restarts
+ * @param errorQueueName legacy. Not used in this queue version. Was previously used to send messages to error queue for storage.
+ * @param materializer used by akka. Implicitly provided via import
+ * @param config Provides config used by the queue
+ * @param ex Thread pool used by the akka queue model. Provided via implicit import
+ * @tparam M Message type that the queue receives
+ * @tparam T Response type from the "business logic" provided via subscribe
+ */
 case class Queue[M <: Envelope, T](
     name: String,
     durable: Boolean = true,
@@ -34,14 +48,8 @@ case class Queue[M <: Envelope, T](
     extends Subscribable
     with Sendable[M] {
 
-  // the durable setting must match the existing queue, or an exception is thrown when using it
-//  private val queueDeclaration = QueueDeclaration(name).withDurable(
-//    durable
-//  ) // withArguments method to specify exchange?
   private val maxRetries = config.getInt("queue.max-retries")
 
-  // get a load of connection params from the config
-  // TODO use exception handler for retries?
   private val amqpDetailsConnectionProvider =
     AmqpDetailsConnectionProvider(
       host = config.getString("queue.host"),
@@ -72,9 +80,6 @@ case class Queue[M <: Envelope, T](
     .withBufferSize(10)
     .withConfirmationTimeout(200.millis)
 
-//  val amqpFlow: Flow[WriteMessage, WriteResult, Future[Done]] =
-//    AmqpFlow.withConfirm(writeSettings)
-
   val amqpSink: Sink[WriteMessage, Future[Done]] =
     AmqpSink(
       writeSettings
@@ -90,15 +95,21 @@ case class Queue[M <: Envelope, T](
     */
   private def getRetries(cm: CommittableReadResult, e: Throwable): Future[ReadResult] = {
     val headers: util.Map[String, AnyRef] = cm.message.properties.getHeaders
-    val retriesFromHeader = Try {
-      val retryHeader = headers.get(RetryHeader)
-      retryHeader.toString.toInt
+    val retryHeader = headers match {
+      case null => Success(0)
+      case _ => Try {
+        val retryHeader = headers.get(RetryHeader)
+        retryHeader.toString.toInt
+      }
     }
-    val numRetries = retriesFromHeader.map(retries => retries + 1).getOrElse(1)
+    val numRetries = retryHeader match {
+      case Success(retries) => retries
+      case Failure(_) => 0
+    }
     println(s"Retries for ${cm.message.bytes.utf8String} is $numRetries")
     if (numRetries > maxRetries) {
       // nack it after retries exhausted. Could log it out as well. In previous versions
-      // we wrote out some Json about the failure but not sure we should
+      // we wrote out some Json to the db about the failure but not sure we should
       println(s"${cm.message.bytes.utf8String} has exceeded retries so nacking without requeue. Exception was ${e.getMessage}")
       cm.nack(requeue = false).map(_ => cm.message)
     } else {
@@ -106,7 +117,7 @@ case class Queue[M <: Envelope, T](
       for {
         _ <- {
           val header: Map[String, Object] = Map(
-            RetryHeader -> Integer.valueOf(numRetries)
+            RetryHeader -> Integer.valueOf(numRetries + 1)
           )
           val jHeader = header.asJava
 
@@ -114,15 +125,16 @@ case class Queue[M <: Envelope, T](
           val amqpBasicProps: AMQP.BasicProperties =
             cm.message.properties.builder().headers(jHeader).build()
 
-          // send a new message, TODO can we reliably call .get on the try below?
-          val sendResult: Future[Done] = send(
-            Try(cm.message.envelope.asInstanceOf[M]).get,
-            Some(amqpBasicProps)
-          )
+          // send a new message
+          println("Going to send a retry")
+          val msg = ByteString(cm.message.bytes.utf8String + "yo yo yo")
+          val sendResult: Future[Done] = sendRetry(msg, Some(amqpBasicProps))
           sendResult
         }
-        // we've sent a new message with retry count in header so nack the old one. TODO any way we can add the retries to header and just nack it?
+        // we've sent a new message with retry count in header so nack the old one.
+        // TODO any way we can add the retries to header and just nack it?
         nackRes <- {
+          // TODO use exception handler for retries?
           cm.nack(requeue = false).map(_ => cm.message)
         }
       } yield nackRes
@@ -155,10 +167,9 @@ case class Queue[M <: Envelope, T](
     // check case for success/fail and ack nack
     .mapAsync(1) {
       case
-          // Also gets Some(result) from the business logic. Not sure what we want do with it
-          (cm, Success(hr)) => {
+          // Also gets result from the business logic. Not sure what we want do with it
+          (cm, Success(_)) => {
         println(s"${cm.message.bytes.utf8String} is successful. Acking")
-        println(s"hr is: ${hr.toString}")
         // if business logic failed then nack, otherwise ack
         cm.ack().map(_ => cm.message)
       }
@@ -185,17 +196,38 @@ case class Queue[M <: Envelope, T](
     result
   }
 
+  def sendRetry(
+            message: ByteString,
+            properties: Option[AMQP.BasicProperties]
+          ): Future[Done] = {
+    val result: Future[Done] = Source
+      .single(message)
+      .map(
+        { message => {
+          val writeMessage = WriteMessage(message)
+          writeMessage.withProperties(persistMessages(properties))
+        }
+        }
+      )
+      .runWith(amqpSink)
+    println(s"sent retry ${message.utf8String}")
+    result
+  }
+
   /** Check if messages are to be persisted and add delivery mode property
     * @param properties
     * @return
     */
    override def persistMessages(properties: Option[AMQP.BasicProperties]) = {
     // At the moment create the properties rather than use what is passed in
-     val properties = new BasicProperties.Builder()
-    val persistedProps = if (persistent) {
-      properties.deliveryMode(2).build()
+     val basicProperties = properties match {
+       case None => new BasicProperties.Builder().build()
+       case Some(props) => props
+     }
+     val persistedProps = if (persistent) {
+       basicProperties.builder().deliveryMode(2).build()
     } else {
-      properties.deliveryMode(1).build()
+       basicProperties.builder().deliveryMode(1).build()
     }
     persistedProps
   }
