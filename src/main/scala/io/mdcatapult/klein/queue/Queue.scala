@@ -22,7 +22,7 @@ object Queue {
 }
 /**
  * Create a Queue using params from config that receives messages M and returns T as part of the "business logic" response.
- * M = message you send to the queue through send
+ * M = message you send to the queue through send,
  * T is part of the response through subscribe
  * @param name name of the queue
  * @param durable should the queue be persisted if the message server restarts
@@ -53,7 +53,7 @@ case class Queue[M <: Envelope, T] (
   private val amqpDetailsConnectionProvider =
     AmqpDetailsConnectionProvider(
       host = config.getString("queue.host"),
-      port = 5672
+      port = config.getInt("queue.port")
     )
       .withVirtualHost(config.getString("queue.virtual-host"))
       .withHostsAndPorts(
