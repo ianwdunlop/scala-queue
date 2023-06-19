@@ -32,10 +32,10 @@ lazy val root = (project in file("."))
           Credentials(Path.userHome / ".sbt" / ".credentials")
       }
     },
+    dependencyOverrides += "org.scala-lang.modules" %% "scala-java8-compat" % "1.0.2",
     libraryDependencies ++= {
       val kleinUtilVersion = "1.2.4"
 
-      val opRabbitVersion = "2.6.4"
       val configVersion = "1.4.1"
       val playWsStandaloneVersion = "2.1.7"
       val akkaVersion = "2.6.18"
@@ -46,11 +46,6 @@ lazy val root = (project in file("."))
         "io.mdcatapult.klein" %% "util"                  % kleinUtilVersion,
 
         "org.scalatest" %% "scalatest"                   % scalaTestVersion % "it,test",
-        "com.github.pjfanning" %% "op-rabbit-core"       % opRabbitVersion,
-        "com.github.pjfanning" %% "op-rabbit-play-json"  % opRabbitVersion,
-        "com.github.pjfanning" %% "op-rabbit-json4s"     % opRabbitVersion,
-        "com.github.pjfanning" %% "op-rabbit-airbrake"   % opRabbitVersion,
-        "com.spingo" %% "scoped-fixtures"                % scopedFixturesVersion % "it,test",
         "com.typesafe" % "config"                        % configVersion,
         "com.typesafe.play" %% "play-ahc-ws-standalone"  % playWsStandaloneVersion,
         "com.typesafe.play" %% "play-ws-standalone-json" % playWsStandaloneVersion,
