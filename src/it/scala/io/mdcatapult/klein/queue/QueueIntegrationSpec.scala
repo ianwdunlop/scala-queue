@@ -82,11 +82,10 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
   "A queue" should "can be subscribed to and read from" in {
 
     // Note that we need to include readResult topic if we want the queue to be created
-    val consumerName = Option(config.getString("op-rabbit.topic-exchange-name"))
     val queueName = "persistent-test-queue"
     val count: AtomicInt = AtomicInt(0)
 
-    val queue = createQueueOnly(queueName, true, consumerName, true)
+    val queue = createQueueOnly(queueName, true, Some("test-consumer"), true)
     val businessLogic: CommittableReadResult => Future[(CommittableReadResult, Try[Message])] = { committableReadResult =>
       val msg = Message((math.random < 0.5).toString)
       count.add(1)
