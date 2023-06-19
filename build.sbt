@@ -37,7 +37,7 @@ lazy val root = (project in file("."))
       val kleinUtilVersion = "1.2.4"
 
       val configVersion = "1.4.2"
-      val playWsStandaloneVersion = "2.1.7"
+      val playWsStandaloneVersion = "2.1.10"
       val akkaVersion = "2.8.1"
       val scalaTestVersion = "3.2.15"
       val scopedFixturesVersion = "2.0.0"
