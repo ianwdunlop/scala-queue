@@ -36,10 +36,10 @@ lazy val root = (project in file("."))
     libraryDependencies ++= {
       val kleinUtilVersion = "1.2.4"
 
-      val configVersion = "1.4.1"
+      val configVersion = "1.4.2"
       val playWsStandaloneVersion = "2.1.7"
       val akkaVersion = "2.8.1"
-      val scalaTestVersion = "3.2.11"
+      val scalaTestVersion = "3.2.15"
       val scopedFixturesVersion = "2.0.0"
 
       Seq(
@@ -53,8 +53,7 @@ lazy val root = (project in file("."))
         "com.typesafe.akka" %% "akka-slf4j"              % akkaVersion % "it,test",
         "com.typesafe.akka" %% "akka-stream"             % akkaVersion % "it,test",
         "com.typesafe.akka" %% "akka-testkit"            % akkaVersion % "it,test",
-        "com.lightbend.akka" %% "akka-stream-alpakka-amqp" % "6.0.1",
-        "org.json4s" %% "json4s-native" % "3.6.7"
+        "com.lightbend.akka" %% "akka-stream-alpakka-amqp" % "6.0.1"
       )
     }
   ).
