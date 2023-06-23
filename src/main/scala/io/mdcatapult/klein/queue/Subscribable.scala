@@ -1,10 +1,16 @@
 package io.mdcatapult.klein.queue
 
-import akka.actor.ActorRef
-import com.spingo.op_rabbit.{RecoveryStrategy => OpRecoveryStrategy}
+import akka.stream.alpakka.amqp.QueueDeclaration
 
+/**
+ * An abstraction of a queue
+ * name: name of the queue
+ * durable: should the queue survive a server restart
+ */
 trait Subscribable {
   val name: String
-  val rabbit: ActorRef
-  implicit val recoveryStrategy: OpRecoveryStrategy
+  val durable: Boolean
+  val queueDeclaration = QueueDeclaration(name).withDurable(
+    durable
+  )
 }
