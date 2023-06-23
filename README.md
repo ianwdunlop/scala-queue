@@ -62,3 +62,5 @@ docker-compose up -d
 sbt clean it:test
 ```
 
+Version 1.9 and below use op-rabbit. Versions greater than 1.9 use Alpakka.
+
