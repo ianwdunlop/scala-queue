@@ -17,6 +17,9 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 import scala.collection.mutable.Map
 
+/**
+ * Use Play Json implicit formatter to convert class to Json string
+ */
 object Message {
   implicit val msgFormatter: Format[Message] = Json.format[Message]
 }
