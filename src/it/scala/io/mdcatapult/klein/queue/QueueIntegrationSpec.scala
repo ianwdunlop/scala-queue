@@ -1,25 +1,30 @@
 package io.mdcatapult.klein.queue
 
 import akka.actor._
+import akka.stream.alpakka.amqp.scaladsl.CommittableReadResult
 import akka.testkit.{ImplicitSender, TestKit}
-import com.rabbitmq.client.{CancelCallback, Channel, ConnectionFactory, DeliverCallback, Delivery}
-import monix.execution.atomic.AtomicInt
-import org.scalatest.time.{Seconds, Span}
 import com.typesafe.config.{Config, ConfigFactory}
+import monix.execution.atomic.AtomicInt
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.{Seconds, Span}
 import play.api.libs.json.{Format, Json}
-import com.spingo.op_rabbit.SubscriptionRef
 
-import scala.concurrent.duration._
-import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
+import scala.collection.mutable.Map
 
 object Message {
   implicit val msgFormatter: Format[Message] = Json.format[Message]
 }
-case class Message(message: String) extends Envelope
+case class Message(message: String) extends Envelope {
+  override def toJsonString(): String = {
+    Json.toJson(this).toString()
+  }
+}
 
 class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", ConfigFactory.parseString(
   """
@@ -32,88 +37,72 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
   implicit val config: Config = ConfigFactory.load()
 
   /**
-   * Create a rabbit queue, get subscription and then close the subscription
+   * Create readResult rabbit queue, get subscription and then close the subscription
    * to ensure no message pulled
    *
    * @param queueName
    * @param consumerName
    */
-  def createQueueOnly(queueName: String, consumerName: Option[String], persist: Boolean): Queue[Message] = {
-    val queue = Queue[Message](queueName, consumerName, persistent = persist)
-    val subscription: SubscriptionRef = queue.subscribe((msg: Message)  => {})
-    Await.result(subscription.initialized, 5.seconds)
-    subscription.close()
+  def createQueueOnly(queueName: String, durable: Boolean, consumerName: Option[String], persist: Boolean): Queue[Message, Message] = {
+    val queue = Queue[Message, Message](queueName, durable, consumerName, persistent = persist)
+
     queue
   }
 
-  /**
-   * Use the java rabbit libs to create a rabbit connection.
-   * Makes getting the message properties much simpler
-   * @return
-   */
-  def getRabbitChannel(): Channel = {
-    // Use the java rabbit libs. Makes getting the message properties much simpler
-    val factory = new ConnectionFactory
-    factory.setHost(config.getStringList("op-rabbit.connection.hosts").get(0))
-    factory.setUsername(config.getString("op-rabbit.connection.username"))
-    factory.setPassword(config.getString("op-rabbit.connection.password"))
-    factory.setVirtualHost(config.getString("op-rabbit.connection.virtual-host"))
-    val connection = factory.newConnection
-    connection.createChannel
+  "A message to a queue" can "fail and is then retried" in {
+
+    val queueName = "failure-queue"
+    val failure_Count: AtomicInt = AtomicInt(0)
+    // keep track of failures per message
+    val failureCount: Map[String, Int] = scala.collection.mutable.Map[String, Int]("{\"message\":\"Fail me\"}" -> 0, "{\"message\":\"Fail me 2\"}" -> 0, "{\"message\":\"Fail me 3\"}" -> 0)
+    val queue = createQueueOnly(queueName, true, None, true)
+    val businessLogic: CommittableReadResult => Future[(CommittableReadResult, Try[Message])] = { committableReadResult =>
+      failure_Count.add(1)
+      failureCount(committableReadResult.message.bytes.utf8String) = failureCount(committableReadResult.message.bytes.utf8String) + 1
+      // fail the message and force a retry
+      Future((committableReadResult, Failure(new Exception("boom"))))
+    }
+    queue.subscribe(businessLogic)
+
+    // give the queue a second or 2 to sort itself out
+    Thread.sleep(3000)
+    queue.send(Message("Fail me"))
+
+    queue.send(Message("Fail me 2"))
+
+    queue.send(Message("Fail me 3"))
+
+    eventually (timeout(Span(25, Seconds))) {
+      failureCount("{\"message\":\"Fail me\"}" ) should be >= 4
+      failure_Count.get() should be >= 12
+    }
+
   }
 
-  "Creating a queue with persist false" should "not persist messages" in {
+  "A queue" should "can be subscribed to and read from" in {
 
-    // Note that we need to include a topic if we want the queue to be created
-    val consumerName = Option(config.getString("op-rabbit.topic-exchange-name"))
-    val queueName = "non-persistent-test-queue"
-
-    val queue = createQueueOnly(queueName, consumerName, false)
-
-    val channel = getRabbitChannel()
-
-    val deliveryMode: AtomicInt = AtomicInt(0)
-    val cancelCallback: CancelCallback = _ => {
-
-    }
-    // Rabbit callback. Checks for non persistence property
-    val deliverCallback:DeliverCallback = (_: String, delivery: Delivery) => {
-      if (delivery.getProperties.getDeliveryMode == 1) {
-        deliveryMode.add(1)
-      }
-    }
-    channel.basicConsume(queueName, deliverCallback, cancelCallback)
-    queue.send(Message("Don't persist me"))
-
-    eventually (timeout(Span(5, Seconds))) {deliveryMode.get() should be >= 1 }
-  }
-
-  "A queue" should "persists messages by default" in {
-
-    // Note that we need to include a topic if we want the queue to be created
-    val consumerName = Option(config.getString("op-rabbit.topic-exchange-name"))
+    // Note that we need to include readResult topic if we want the queue to be created
     val queueName = "persistent-test-queue"
+    val count: AtomicInt = AtomicInt(0)
 
-    val queue = createQueueOnly(queueName, consumerName, true)
-
-    val channel = getRabbitChannel()
-
-    val deliveryMode: AtomicInt = AtomicInt(0)
-    val cancelCallback: CancelCallback = _ => {
-
+    val queue = createQueueOnly(queueName, true, Some("test-consumer"), true)
+    val businessLogic: CommittableReadResult => Future[(CommittableReadResult, Try[Message])] = { committableReadResult =>
+      val msg = Message((math.random < 0.5).toString)
+      count.add(1)
+      Future((committableReadResult, Success(msg)))
     }
-    // Rabbit callback. Checks for persistence property (the op-rabbit default and enforced by default in Queue)
-    val deliverCallback:DeliverCallback = (_: String, delivery: Delivery) => {
-      if (delivery.getProperties.getDeliveryMode == 2) {
-        deliveryMode.add(1)
-      }
-    }
-    channel.basicConsume(queueName, deliverCallback, cancelCallback)
-    queue.send(Message("Persist me"))
+    queue.subscribe(businessLogic)
 
-    eventually (timeout(Span(5, Seconds))) {deliveryMode.get() should be >= 1 }
+    // give the queue a second or 2 to sort itself out
+    Thread.sleep(3000)
+    val res = queue.send(Message("I am a message"))
+    whenReady(res) {
+      r => r.toString should be ("Done")
+    }
+    // should only be one trip through the business logic
+    eventually (timeout(Span(25, Seconds))) {
+      count.get() should be (1)
+    }
+
   }
-
 }
-
-
