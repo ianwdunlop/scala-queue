@@ -1,3 +1,8 @@
+import com.gilcloud.sbt.gitlab.{GitlabCredentials,GitlabPlugin}
+
+GitlabPlugin.autoImport.gitlabGroupId     :=  Some(73679838)
+GitlabPlugin.autoImport.gitlabProjectId   :=  Some(50550924)
+
 lazy val scala_2_13 = "2.13.2"
 
 lazy val IntegrationTest = config("it") extend Test
@@ -21,17 +26,8 @@ lazy val root = (project in file("."))
       "-Xlint",
       "-Xfatal-warnings",
     ),
-    resolvers         ++= Seq(
-      "MDC Nexus Releases" at "https://nexus.wopr.inf.mdc/repository/maven-releases/",
-      "MDC Nexus Snapshots" at "https://nexus.wopr.inf.mdc/repository/maven-snapshots/"),
-    credentials       += {
-      sys.env.get("NEXUS_PASSWORD") match {
-        case Some(p) =>
-          Credentials("Sonatype Nexus Repository Manager", "nexus.wopr.inf.mdc", "gitlab", p)
-        case None =>
-          Credentials(Path.userHome / ".sbt" / ".credentials")
-      }
-    },
+    resolvers += ("gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven"),
+    credentials += Credentials("GitLab Packages Registry", "gitlab.com", "Job-Token", sys.env.get("CI_JOB_TOKEN").get),
     dependencyOverrides += "org.scala-lang.modules" %% "scala-java8-compat" % "1.0.2",
     libraryDependencies ++= {
       val kleinUtilVersion = "1.2.4"
@@ -56,17 +52,4 @@ lazy val root = (project in file("."))
         "com.lightbend.akka" %% "akka-stream-alpakka-amqp" % "6.0.1"
       )
     }
-  ).
-  settings(
-    publishSettings: _*
   )
-
-lazy val publishSettings = Seq(
-  publishTo := {
-    if (isSnapshot.value)
-      Some("MDC Maven Repo" at "https://nexus.wopr.inf.mdc/repository/maven-snapshots/")
-    else
-      Some("MDC Nexus" at "https://nexus.wopr.inf.mdc/repository/maven-releases/")
-  },
-  credentials += Credentials(Path.userHome / ".sbt" / ".credentials")
-)

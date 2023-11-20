@@ -22,12 +22,10 @@ cache:
     - "sbt-cache/target"
 
 default:
-  image: registry.mdcatapult.io/informatics/docker-images/ci/scala
+  image: registry.gitlab.com/medicines-discovery-catapult/informatics/docker-images/ci/sbt:latest
 
 test:
   stage: test
-  tags:
-    - wopr
   variables:
     RABBITMQ_HOST: rabbitmq
     RABBITMQ_USERNAME: guest
@@ -43,8 +41,6 @@ test:
 
 publish-snapshot:
   stage: publish
-  tags:
-    - wopr
   script:
     - sbt +publish
   only:
@@ -55,12 +51,10 @@ publish-snapshot:
 
 release-master:
   stage: publish
-  tags:
-    - wopr
   script:
-    - /scripts/release.sh -b -r develop
+    - cictl exec release sbt
   only:
-    - master
+    - main
   except:
     variables:
       - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
