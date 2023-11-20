@@ -43,9 +43,9 @@ publish-snapshot:
   stage: publish
   script:
     - sbt +publish
-  only:
-    - develop
   except:
+    refs:
+      - main
     variables:
       - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
 
