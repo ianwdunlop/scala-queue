@@ -3,6 +3,15 @@ import com.gilcloud.sbt.gitlab.{GitlabCredentials,GitlabPlugin}
 GitlabPlugin.autoImport.gitlabGroupId     :=  Some(73679838)
 GitlabPlugin.autoImport.gitlabProjectId   :=  Some(50550924)
 
+GitlabPlugin.autoImport.gitlabCredentials  := {
+  sys.env.get("GITLAB_PRIVATE_TOKEN") match {
+    case Some(token) =>
+      Some(GitlabCredentials("Private-Token", token))
+    case None =>
+      Some(GitlabCredentials("Job-Token", sys.env.get("CI_JOB_TOKEN").get))
+  }
+}
+
 lazy val scala_2_13 = "2.13.2"
 
 lazy val IntegrationTest = config("it") extend Test
@@ -27,7 +36,14 @@ lazy val root = (project in file("."))
       "-Xfatal-warnings",
     ),
     resolvers += ("gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven"),
-    credentials += Credentials("GitLab Packages Registry", "gitlab.com", "Job-Token", sys.env.get("CI_JOB_TOKEN").get),
+    credentials += {
+      sys.env.get("GITLAB_PRIVATE_TOKEN") match {
+        case Some(token) =>
+          Credentials("GitLab Packages Registry", "gitlab.com", "Private-Token", token)
+        case None =>
+          Credentials("GitLab Packages Registry", "gitlab.com", "Job-Token", sys.env.get("CI_JOB_TOKEN").get)
+      }
+    },
     dependencyOverrides += "org.scala-lang.modules" %% "scala-java8-compat" % "1.0.2",
     libraryDependencies ++= {
       val kleinUtilVersion = "1.2.4"
