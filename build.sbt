@@ -46,7 +46,7 @@ lazy val root = (project in file("."))
     },
     dependencyOverrides += "org.scala-lang.modules" %% "scala-java8-compat" % "1.0.2",
     libraryDependencies ++= {
-      val kleinUtilVersion = "1.2.4"
+      val kleinUtilVersion = "1.2.6"
 
       val configVersion = "1.4.2"
       val playWsStandaloneVersion = "2.1.10"
