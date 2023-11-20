@@ -30,6 +30,7 @@ test:
     RABBITMQ_HOST: rabbitmq
     RABBITMQ_USERNAME: guest
     RABBITMQ_PASSWORD: guest
+    RABBITMQ_PORT: 5672
   script:
     - sleep 5
     - curl http://guest:guest@rabbitmq:15672/api/overview
