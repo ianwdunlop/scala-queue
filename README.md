@@ -59,7 +59,7 @@ There are various config options that are used when creating a queue. These can 
 ## Testing
 ```bash
 docker-compose up -d
-sbt clean it:test
+sbt clean it/test
 ```
 
 Version 1.9 and below use op-rabbit. Versions greater than 1.9 use Alpakka.
