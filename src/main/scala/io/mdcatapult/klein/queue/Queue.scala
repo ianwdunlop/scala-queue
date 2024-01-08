@@ -218,22 +218,4 @@ case class Queue[M <: Envelope, T] (
       .runWith(amqpSink)
     result
   }
-
-//  /** Check if messages are to be persisted and add delivery mode property
-//   *
-//   * @param properties
-//   * @return
-//   */
-//  override def persistMessages(properties: Option[AMQP.BasicProperties]): BasicProperties = {
-//    val basicProperties = properties match {
-//      case None => new BasicProperties.Builder().build()
-//      case Some(props) => props
-//    }
-//    val persistedProps = if (persistent) {
-//      basicProperties.builder().deliveryMode(2).build()
-//    } else {
-//      basicProperties.builder().deliveryMode(1).build()
-//    }
-//    persistedProps
-//  }
 }
