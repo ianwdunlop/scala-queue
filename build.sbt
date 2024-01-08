@@ -25,7 +25,7 @@ lazy val root = (project in file("."))
     credentials += {
       sys.env.get("CI_JOB_TOKEN") match {
         case Some(token) =>
-          Credentials("GitLab Packages Registry", "gitlab.com", "Job-Token", sys.env.get("CI_JOB_TOKEN").get)
+          Credentials("GitLab Packages Registry", "gitlab.com", "gitlab-ci-token", sys.env.get("CI_JOB_TOKEN").get)
         case None =>
           Credentials(Path.userHome / ".sbt" / ".credentials")
       }
