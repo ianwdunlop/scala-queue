@@ -171,7 +171,10 @@ case class Queue[M <: Envelope, T] (
         // if business logic failed then nack, otherwise ack
         cm.ack().map(_ => cm.message)
       }
-      case (cm, Failure(e)) => getRetries(cm, e)
+      case (cm, Failure(e)) => {
+        logger.error(s"${cm.message.bytes.utf8String} was not successful.", e)
+        getRetries(cm, e)
+      }
     }
     .runWith(Sink.seq)
 
