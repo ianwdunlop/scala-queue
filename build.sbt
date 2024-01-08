@@ -3,6 +3,22 @@ lazy val scala_2_13 = "2.13.12"
 lazy val IntegrationTest = config("it") extend Test
 concurrentRestrictions in Global += Tags.limit(Tags.Test, 1)
 
+lazy val creds = {
+  sys.env.get("CI_JOB_TOKEN") match {
+    case Some(token) =>
+      Credentials("GitLab Packages Registry", "gitlab.com", "gitlab-ci-token", token)
+    case _ =>
+      Credentials(Path.userHome / ".sbt" / ".credentials")
+  }
+}
+
+lazy val publishSettings = Seq(
+  publishTo := {
+    Some("gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven")
+  },
+  credentials += creds
+)
+
 lazy val root = (project in file("."))
   .configs(IntegrationTest)
   .settings(
@@ -22,14 +38,7 @@ lazy val root = (project in file("."))
       "-Xfatal-warnings",
     ),
     resolvers += ("gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven"),
-    credentials += {
-      sys.env.get("CI_JOB_TOKEN") match {
-        case Some(token) =>
-          Credentials("GitLab Packages Registry", "gitlab.com", "gitlab-ci-token", token)
-        case _ =>
-          Credentials(Path.userHome / ".sbt" / ".credentials")
-      }
-    },
+    credentials += creds,
     dependencyOverrides += "org.scala-lang.modules" %% "scala-java8-compat" % "1.0.2",
     libraryDependencies ++= {
       val kleinUtilVersion = "1.2.6"
@@ -58,17 +67,3 @@ lazy val root = (project in file("."))
   settings(
     publishSettings: _*
   )
-
-lazy val publishSettings = Seq(
-  publishTo := {
-    Some("gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven")
-  },
-  credentials += {
-    sys.env.get("CI_JOB_TOKEN") match {
-      case Some(token) =>
-        Credentials("GitLab Packages Registry", "gitlab.com", "gitlab-ci-token", token)
-      case _ =>
-        Credentials(Path.userHome / ".sbt" / ".credentials")
-    }
-  }
-)
