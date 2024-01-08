@@ -23,12 +23,11 @@ lazy val root = (project in file("."))
     ),
     resolvers += ("gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven"),
     credentials += {
-      sys.env.get("GITLAB_PRIVATE_TOKEN") match {
+      sys.env.get("CI_JOB_TOKEN") match {
         case Some(token) =>
-          Credentials("GitLab Packages Registry", "gitlab.com", "Private-Token", token)
-        case None =>
+          Credentials("GitLab Packages Registry", "gitlab.com", "gitlab-ci-token", token)
+        case _ =>
           Credentials(Path.userHome / ".sbt" / ".credentials")
-//          Credentials("GitLab Packages Registry", "gitlab.com", "Job-Token", sys.env.get("CI_JOB_TOKEN").get)
       }
     },
     dependencyOverrides += "org.scala-lang.modules" %% "scala-java8-compat" % "1.0.2",
@@ -62,13 +61,13 @@ lazy val root = (project in file("."))
 
 lazy val publishSettings = Seq(
   publishTo := {
-      Some("gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven")
+    Some("gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven")
   },
   credentials += {
     sys.env.get("CI_JOB_TOKEN") match {
       case Some(token) =>
-        Credentials("GitLab Packages Registry", "gitlab.com", "Job-Token", sys.env.get("CI_JOB_TOKEN").get)
-      case None =>
+        Credentials("GitLab Packages Registry", "gitlab.com", "gitlab-ci-token", token)
+      case _ =>
         Credentials(Path.userHome / ".sbt" / ".credentials")
     }
   }
