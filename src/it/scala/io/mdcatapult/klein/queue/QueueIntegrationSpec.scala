@@ -90,7 +90,7 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
 
     val queue = createQueueOnly(queueName, true, Some("test-consumer"), true)
     val businessLogic: CommittableReadResult => Future[(CommittableReadResult, Try[Message])] = { committableReadResult =>
-      val msg = Message((math.random < 0.5).toString)
+      val msg = Message((math.random() < 0.5).toString)
       count.add(1)
       Future((committableReadResult, Success(msg)))
     }
