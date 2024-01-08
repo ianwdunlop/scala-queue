@@ -73,7 +73,8 @@ lazy val it = project
     libraryDependencies ++= {
       Seq(
         "org.scalatest" %% "scalatest" % scalaTestVersion,
-        "com.typesafe.akka" %% "akka-testkit" % akkaVersion
+        "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
+        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       )
     }
   )
