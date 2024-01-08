@@ -34,7 +34,7 @@ test:
   script:
     - sleep 5
     - curl http://guest:guest@rabbitmq:15672/api/overview
-    - sbt +clean coverage +test +it:test coverageReport
+    - sbt +clean coverage +test +it/test coverageReport
     - RABBITMQ_EXCHANGE=test_exchange sbt test it:test
   except:
     variables:
