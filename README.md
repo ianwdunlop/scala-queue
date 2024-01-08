@@ -59,8 +59,16 @@ There are various config options that are used when creating a queue. These can 
 ## Testing
 ```bash
 docker-compose up -d
-sbt clean it:test
+sbt clean it/test
 ```
 
 Version 1.9 and below use op-rabbit. Versions greater than 1.9 use Alpakka.
 
+## Publishing & pulling
+Make sure your `.sbt/.credentials` file has the correct values eg
+```
+realm=GitLab Packages Registry
+host=gitlab.com
+user=Private-Token
+password=deploy-token-with-api-access-to-the-package-repo
+```

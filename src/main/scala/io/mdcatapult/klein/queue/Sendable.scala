@@ -1,6 +1,5 @@
 package io.mdcatapult.klein.queue
 
-// import akka.actor.ActorRef
  import akka.Done
  import com.rabbitmq.client.AMQP
  import com.rabbitmq.client.AMQP.BasicProperties
