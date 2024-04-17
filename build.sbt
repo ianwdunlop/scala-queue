@@ -19,7 +19,8 @@ lazy val creds = {
   }
 }
 
-val registryId = sys.env.get("REGISTRY_HOST_PROJECT_ID").get
+// Registry ID is the project ID of the project where the package is published, this should be set in the CI/CD environment
+val registryId = sys.env.get("REGISTRY_HOST_PROJECT_ID").getOrElse("")
 
 lazy val publishSettings = Seq(
   publishTo := {
