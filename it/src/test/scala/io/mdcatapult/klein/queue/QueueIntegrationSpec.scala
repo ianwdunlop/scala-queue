@@ -16,9 +16,9 @@
 
 package io.mdcatapult.klein.queue
 
-import akka.actor._
-import akka.stream.alpakka.amqp.scaladsl.CommittableReadResult
-import akka.testkit.{ImplicitSender, TestKit}
+import org.apache.pekko.actor._
+import org.apache.pekko.stream.connectors.amqp.scaladsl.CommittableReadResult
+import org.apache.pekko.testkit.{ImplicitSender, TestKit}
 import com.typesafe.config.{Config, ConfigFactory}
 import monix.execution.atomic.AtomicInt
 import org.scalatest.BeforeAndAfterAll

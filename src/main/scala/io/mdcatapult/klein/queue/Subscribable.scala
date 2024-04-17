@@ -16,7 +16,7 @@
 
 package io.mdcatapult.klein.queue
 
-import akka.stream.alpakka.amqp.QueueDeclaration
+import org.apache.pekko.stream.connectors.amqp.QueueDeclaration
 
 /**
  * An abstraction of a queue
