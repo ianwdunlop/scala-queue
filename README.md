@@ -1,6 +1,6 @@
 # Scala Queue
 
-A RabbitMQ queue abstraction with retries. Uses [Alpakka AMQP connector](https://doc.akka.io/docs/alpakka/current/amqp.html). Used to send typed messages to a queue and receive typed responses from them.
+A RabbitMQ queue abstraction with retries. Uses [Apache Pekko AMQP Connector](https://pekko.apache.org/docs/pekko-connectors/1.0/amqp.html). Use this library to send typed messages to a queue and receive typed responses from them.
 
 ## Message flow
 If a message fails it is retried a maximum of 3 times. For each retry the original message is nack'd and a new message
@@ -65,8 +65,8 @@ docker-compose up -d
 sbt clean it/test
 ```
 
-Version 1.9 and below use [op-rabbit](https://github.com/SpinGo/op-rabbit). Versions greater than 1.9 use [Alpakka]((https://doc.akka.io/docs/alpakka/current/amqp.html). 
-Versions greater than 2.0.4 use [Apache Pekko](https://pekko.apache.org/docs/pekko/current/index.html).
+Version 1.9 and below use [op-rabbit](https://github.com/SpinGo/op-rabbit). Versions greater than 1.9 and 2.x use [Alpakka]((https://doc.akka.io/docs/alpakka/current/amqp.html). 
+Versions 3 and above use [Apache Pekko](https://pekko.apache.org/docs/pekko/current/index.html).
 
 ## Publishing & pulling
 Make sure your `.sbt/.credentials` file has the correct values eg
