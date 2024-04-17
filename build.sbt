@@ -4,8 +4,8 @@ concurrentRestrictions in Global += Tags.limit(Tags.Test, 1)
 
 val configVersion = "1.4.2"
 val scalaLoggingVersion = "3.9.4"
-val playWsStandaloneVersion = "2.1.10"
-val akkaVersion = "2.8.1"
+val playWsStandaloneVersion = "3.0.2"
+val pekkoVersion = "1.0.2"
 val scalaTestVersion = "3.2.15"
 val scopedFixturesVersion = "2.0.0"
 val monixVersion = "3.4.0"
@@ -19,7 +19,7 @@ lazy val creds = {
   }
 }
 
-val registryId = sys.env.get("REGISTRY_HOST_PROJECT_ID")
+val registryId = sys.env.get("REGISTRY_HOST_PROJECT_ID").get
 
 lazy val publishSettings = Seq(
   publishTo := {
@@ -51,10 +51,10 @@ lazy val root = (project in file("."))
       Seq(
         "com.typesafe" % "config"                        % configVersion,
         "com.typesafe.scala-logging" %% "scala-logging"  % scalaLoggingVersion,
-        "com.typesafe.play" %% "play-ahc-ws-standalone"  % playWsStandaloneVersion,
-        "com.typesafe.play" %% "play-ws-standalone-json" % playWsStandaloneVersion,
-        "com.lightbend.akka" %% "akka-stream-alpakka-amqp" % "6.0.1",
-        "com.typesafe.akka" %% "akka-stream"             % akkaVersion,
+        "org.playframework" %% "play-ahc-ws-standalone"  % playWsStandaloneVersion,
+        "org.playframework" %% "play-ws-standalone-json" % playWsStandaloneVersion,
+        "org.apache.pekko" %% "pekko-connectors-amqp"    % "1.0.2",
+        "org.apache.pekko" %% "pekko-stream"             % pekkoVersion,
       )
     }
 ).
@@ -69,12 +69,11 @@ lazy val it = project
   scalaVersion := "2.13.12",
   libraryDependencies ++= {
     Seq(
-      "com.typesafe.akka" %% "akka-testkit"            % akkaVersion,
-      "com.typesafe.akka" %% "akka-actor"              % akkaVersion,
-      "org.scalatest" %% "scalatest" % scalaTestVersion,
-        "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
-        "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
-      "io.monix" %% "monix"                            % monixVersion
+      "org.apache.pekko" %% "pekko-testkit"  % pekkoVersion,
+      "org.apache.pekko" %% "pekko-actor"    % pekkoVersion,
+      "org.scalatest" %% "scalatest"         % scalaTestVersion,
+      "org.apache.pekko" %% "pekko-slf4j"    % pekkoVersion,
+      "io.monix" %% "monix"                  % monixVersion
         )
     }
   )

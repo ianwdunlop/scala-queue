@@ -16,12 +16,12 @@
 
 package io.mdcatapult.klein.queue
 
-import akka.Done
-import akka.stream.Materializer
-import akka.stream.alpakka.amqp._
-import akka.stream.alpakka.amqp.scaladsl.{AmqpSink, AmqpSource, CommittableReadResult}
-import akka.stream.scaladsl.{Sink, Source}
-import akka.util.ByteString
+import org.apache.pekko.Done
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.connectors.amqp._
+import org.apache.pekko.stream.connectors.amqp.scaladsl.{AmqpSink, AmqpSource, CommittableReadResult}
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.util.ByteString
 import com.rabbitmq.client.AMQP
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
