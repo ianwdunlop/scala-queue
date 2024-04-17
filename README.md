@@ -65,7 +65,8 @@ docker-compose up -d
 sbt clean it/test
 ```
 
-Version 1.9 and below use [op-rabbit](https://github.com/SpinGo/op-rabbit). Versions greater than 1.9 use [Alpakka]((https://doc.akka.io/docs/alpakka/current/amqp.html).
+Version 1.9 and below use [op-rabbit](https://github.com/SpinGo/op-rabbit). Versions greater than 1.9 use [Alpakka]((https://doc.akka.io/docs/alpakka/current/amqp.html). 
+Versions greater than 2.0.4 use [Apache Pekko](https://pekko.apache.org/docs/pekko/current/index.html).
 
 ## Publishing & pulling
 Make sure your `.sbt/.credentials` file has the correct values eg
