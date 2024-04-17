@@ -16,7 +16,7 @@
 
 package io.mdcatapult.klein.queue
 
- import akka.Done
+ import org.apache.pekko.Done
  import com.rabbitmq.client.AMQP
  import com.rabbitmq.client.AMQP.BasicProperties
 
