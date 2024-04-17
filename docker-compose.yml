@@ -7,3 +7,5 @@ services:
       - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_VHOST: doclib
+      RABBITMQ_DEFAULT_USER: doclib
+      RABBITMQ_DEFAULT_PASS: doclib

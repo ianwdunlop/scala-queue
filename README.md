@@ -72,3 +72,6 @@ host=gitlab.com
 user=Private-Token
 password=deploy-token-with-api-access-to-the-package-repo
 ```
+
+### License
+This project is licensed under the terms of the Apache 2 license, which can be found in the repository as `LICENSE.txt`
