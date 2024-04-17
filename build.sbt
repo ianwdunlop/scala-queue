@@ -2,13 +2,13 @@ lazy val scala_2_13 = "2.13.12"
 
 concurrentRestrictions in Global += Tags.limit(Tags.Test, 1)
 
-val kleinUtilVersion = "1.2.6"
-
 val configVersion = "1.4.2"
+val scalaLoggingVersion = "3.9.4"
 val playWsStandaloneVersion = "2.1.10"
 val akkaVersion = "2.8.1"
 val scalaTestVersion = "3.2.15"
 val scopedFixturesVersion = "2.0.0"
+val monixVersion = "3.4.0"
 
 lazy val creds = {
   sys.env.get("CI_JOB_TOKEN") match {
@@ -47,35 +47,33 @@ lazy val root = (project in file("."))
     dependencyOverrides += "org.scala-lang.modules" %% "scala-java8-compat" % "1.0.2",
     libraryDependencies ++= {
       Seq(
-        "io.mdcatapult.klein" %% "util"                  % kleinUtilVersion,
-
-        "org.scalatest" %% "scalatest"                   % scalaTestVersion % "test",
         "com.typesafe" % "config"                        % configVersion,
+        "com.typesafe.scala-logging" %% "scala-logging"  % scalaLoggingVersion,
         "com.typesafe.play" %% "play-ahc-ws-standalone"  % playWsStandaloneVersion,
         "com.typesafe.play" %% "play-ws-standalone-json" % playWsStandaloneVersion,
-        "com.typesafe.akka" %% "akka-actor"              % akkaVersion % "test",
-        "com.typesafe.akka" %% "akka-slf4j"              % akkaVersion % "test",
-        "com.typesafe.akka" %% "akka-stream"             % akkaVersion % "test",
-        "com.typesafe.akka" %% "akka-testkit"            % akkaVersion % "test",
-        "com.lightbend.akka" %% "akka-stream-alpakka-amqp" % "6.0.1"
+        "com.lightbend.akka" %% "akka-stream-alpakka-amqp" % "6.0.1",
+        "com.typesafe.akka" %% "akka-stream"             % akkaVersion,
       )
     }
-  ).
-  settings(
-    publishSettings: _*
-  )
+).
+settings(
+  publishSettings: _*
+)
 
 lazy val it = project
-  .in(file("it"))  //it test located in a directory named "it"
-  .settings(
-    name := "queue-it",
-    scalaVersion := "2.13.12",
-    libraryDependencies ++= {
-      Seq(
-        "org.scalatest" %% "scalatest" % scalaTestVersion,
+.in(file("it"))  //it test located in a directory named "it"
+.settings(
+  name := "queue-it",
+  scalaVersion := "2.13.12",
+  libraryDependencies ++= {
+    Seq(
+      "com.typesafe.akka" %% "akka-testkit"            % akkaVersion,
+      "com.typesafe.akka" %% "akka-actor"              % akkaVersion,
+      "org.scalatest" %% "scalatest" % scalaTestVersion,
         "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
         "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
-      )
+      "io.monix" %% "monix"                            % monixVersion
+        )
     }
   )
   .dependsOn(root)
