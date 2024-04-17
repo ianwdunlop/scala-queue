@@ -1,6 +1,6 @@
 # Scala Queue
 
-A RabbitMQ queue abstraction with retries. Uses [Alpakka AMQP connector](https://doc.akka.io/docs/alpakka/current/amqp.html)
+A RabbitMQ queue abstraction with retries. Uses [Alpakka AMQP connector](https://doc.akka.io/docs/alpakka/current/amqp.html). Used to send typed messages to a queue and receive typed responses from them.
 
 ## Message flow
 If a message fails it is retried a maximum of 3 times. For each retry the original message is nack'd and a new message
@@ -8,11 +8,14 @@ sent containing a header `x-retry` with the number of retries. After the final r
 
 ## Persistent messages
 Messages sent to a `Queue` are persisted by default but can be changed to `false` when creating a queue.
+```scala
+val queue = Queue[Message, Message](queueName, durable, consumerName, persistent = false)
+```
 
 ## Creating a queue
 A queue has "business logic" associated with it that is run when a client subscribes to a queue and receives a message. The business logic returns a `Success` or `Failure`.  
 In the example here the message is a simple string and the response also a string. The `M` type of the queue must implement the `io.mdcatapult.klein.queue.Envelope` trait so that we can get 
-the json representation of the message when we send it. You need to override the `toJsonString` method in your `Envelope` sub class and return whatever is appropriate.
+the json representation of the message when we send it. You need to override the `toJsonString` method in your `Envelope` subclass and return whatever is appropriate.
 
 ```scala
 object Message {
@@ -38,7 +41,7 @@ queue.send("Do something for me")
 ```
 The `CommitableReadResult` in the response contains the original message which will be acked or nacked as appropriate.
 
-A queue is created with the type of message it can receive and the response it returns from the business logic. In this doclib specific example the client expects a 
+A queue is created with the type of message it can receive and the response it returns from the business logic. In this example the client expects a 
 `PrefetchMessage` to be received and the business logic would return a `PrefetchResult`.
 ```scala
 Queue[PrefetchMessage, PrefechResult]
@@ -46,7 +49,7 @@ Queue[PrefetchMessage, PrefechResult]
 See the integration tests for some examples.
 
 ## Config
-There are various config options that are used when creating a queue. These can be overriden on the command line via environment variables:
+There are various config options that are used when creating a queue. These can be overridden on the command line via environment variables:
 
 * **QUEUE_MAX_RETRIES** - max number of retries to attempt (default: 3)
 * **RABBITMQ_HOST** - RabbitMQ host name (default: localhost)
@@ -62,7 +65,7 @@ docker-compose up -d
 sbt clean it/test
 ```
 
-Version 1.9 and below use op-rabbit. Versions greater than 1.9 use Alpakka.
+Version 1.9 and below use [op-rabbit](https://github.com/SpinGo/op-rabbit). Versions greater than 1.9 use [Alpakka]((https://doc.akka.io/docs/alpakka/current/amqp.html).
 
 ## Publishing & pulling
 Make sure your `.sbt/.credentials` file has the correct values eg
