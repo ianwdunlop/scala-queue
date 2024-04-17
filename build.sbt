@@ -19,9 +19,11 @@ lazy val creds = {
   }
 }
 
+val registryId = sys.env.get("REGISTRY_HOST_PROJECT_ID")
+
 lazy val publishSettings = Seq(
   publishTo := {
-    Some("gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven")
+    Some("gitlab" at s"https://gitlab.com/api/v4/projects/$registryId/packages/maven")
   },
   credentials += creds
 )
@@ -42,7 +44,7 @@ lazy val root = (project in file("."))
       "-Xlint",
       "-Xfatal-warnings",
     ),
-    resolvers += ("gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven"),
+    resolvers += ("gitlab" at s"https://gitlab.com/api/v4/projects/$registryId/packages/maven"),
     credentials += creds,
     dependencyOverrides += "org.scala-lang.modules" %% "scala-java8-compat" % "1.0.2",
     libraryDependencies ++= {
