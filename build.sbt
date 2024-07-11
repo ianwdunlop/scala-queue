@@ -15,7 +15,7 @@ val monixVersion = "3.4.0"
 lazy val root = (project in file("."))
   .settings(
     name                := "queue",
-    organization        := "io.mdcatapult.klein",
+    organization        := "io.doclib",
     scalaVersion        := scala_2_13,
     crossScalaVersions  := scala_2_13 :: Nil,
     useCoursier := false,
