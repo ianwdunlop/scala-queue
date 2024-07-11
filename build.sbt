@@ -2,6 +2,8 @@ lazy val scala_2_13 = "2.13.12"
 
 concurrentRestrictions in Global += Tags.limit(Tags.Test, 1)
 
+ThisBuild / versionScheme := Some("early-semver")
+
 val configVersion = "1.4.2"
 val scalaLoggingVersion = "3.9.4"
 val playWsStandaloneVersion = "3.0.2"
@@ -9,25 +11,6 @@ val pekkoVersion = "1.0.2"
 val scalaTestVersion = "3.2.15"
 val scopedFixturesVersion = "2.0.0"
 val monixVersion = "3.4.0"
-
-lazy val creds = {
-  sys.env.get("CI_JOB_TOKEN") match {
-    case Some(token) =>
-      Credentials("GitLab Packages Registry", "gitlab.com", "gitlab-ci-token", token)
-    case _ =>
-      Credentials(Path.userHome / ".sbt" / ".credentials")
-  }
-}
-
-// Registry ID is the project ID of the project where the package is published, this should be set in the CI/CD environment
-val registryId = sys.env.get("REGISTRY_HOST_PROJECT_ID").getOrElse("")
-
-lazy val publishSettings = Seq(
-  publishTo := {
-    Some("gitlab" at s"https://gitlab.com/api/v4/projects/$registryId/packages/maven")
-  },
-  credentials += creds
-)
 
 lazy val root = (project in file("."))
   .settings(
@@ -45,8 +28,8 @@ lazy val root = (project in file("."))
       "-Xlint",
       "-Xfatal-warnings",
     ),
-    resolvers += ("gitlab" at s"https://gitlab.com/api/v4/projects/$registryId/packages/maven"),
-    credentials += creds,
+    githubOwner := sys.env.getOrElse("GITHUB_USERNAME", ""),
+    githubRepository := sys.env.getOrElse("GITHUB_PACKAGE_REPO", "scala-packages"),
     dependencyOverrides += "org.scala-lang.modules" %% "scala-java8-compat" % "1.0.2",
     libraryDependencies ++= {
       Seq(
@@ -58,9 +41,6 @@ lazy val root = (project in file("."))
         "org.apache.pekko" %% "pekko-stream"             % pekkoVersion,
       )
     }
-).
-settings(
-  publishSettings: _*
 )
 
 lazy val it = project
