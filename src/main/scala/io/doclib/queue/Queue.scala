@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.mdcatapult.klein.queue
+package io.doclib.queue
 
 import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
@@ -25,7 +25,7 @@ import org.apache.pekko.util.ByteString
 import com.rabbitmq.client.AMQP
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import io.mdcatapult.klein.queue.Queue.RetryHeader
+import io.doclib.queue.Queue.RetryHeader
 
 import java.util
 import scala.concurrent.duration._

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.mdcatapult.klein.queue
+package io.doclib.queue
 
  import org.apache.pekko.Done
  import com.rabbitmq.client.AMQP

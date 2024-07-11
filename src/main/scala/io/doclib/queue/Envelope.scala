@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.mdcatapult.klein.queue
+package io.doclib.queue
 
 /**
  * A container for a message sent to a queue.

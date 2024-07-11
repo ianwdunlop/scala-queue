@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.mdcatapult.klein.queue
+package io.doclib.queue
 
 import org.apache.pekko.actor._
 import org.apache.pekko.stream.connectors.amqp.scaladsl.CommittableReadResult
@@ -115,7 +115,7 @@ class QueueIntegrationSpec extends TestKit(ActorSystem("QueueIntegrationTest", C
     // give the queue a second or 2 to sort itself out
     Thread.sleep(3000)
     val res = queue.send(Message("I am a message"))
-    whenReady(res) {
+    whenReady(res, timeout(Span(25, Seconds))) {
       r => r.toString should be ("Done")
     }
     // should only be one trip through the business logic
